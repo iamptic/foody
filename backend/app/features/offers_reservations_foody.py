@@ -1,11 +1,11 @@
 import os, datetime as dt, uuid, secrets, io
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, Query, Header, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
-from sqlalchemy import String, DateTime, ForeignKey, text, select, Float, Integer
+from sqlalchemy import String, DateTime, ForeignKey, text, select, Float, Integer, and_
 
 import qrcode
 from qrcode.image.pil import PilImage
@@ -26,6 +26,7 @@ class FoodyRestaurant(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     lng: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    api_key: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
 
 class FoodyOffer(Base):
     __tablename__ = "foody_offers"
@@ -37,6 +38,8 @@ class FoodyOffer(Base):
     qty_left: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc))
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 class FoodyReservation(Base):
     __tablename__ = "foody_reservations"
@@ -51,11 +54,13 @@ class FoodyReservation(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc))
 
 router = APIRouter(prefix="/api/v1", tags=["offers","reservations"])
+merchant = APIRouter(prefix="/api/v1/merchant", tags=["merchant"])
 
 async def get_db():
     async with SessionLocal() as session:
         yield session
 
+# ---------- Helpers ----------
 def compute_dynamic_discount(now: dt.datetime, expires_at: dt.datetime, full_price_cents: int) -> int:
     total = 90 * 60
     remain = (expires_at - now).total_seconds()
@@ -65,6 +70,14 @@ def compute_dynamic_discount(now: dt.datetime, expires_at: dt.datetime, full_pri
     discounted = int(round(full_price_cents * (1 - off)))
     return max(0, discounted)
 
+async def auth_restaurant_by_key(db: AsyncSession, api_key: str) -> FoodyRestaurant:
+    q = select(FoodyRestaurant).where(FoodyRestaurant.api_key == api_key)
+    r = (await db.execute(q)).scalar_one_or_none()
+    if not r:
+        raise HTTPException(401, "invalid api key")
+    return r
+
+# ---------- Public Buyer API ----------
 class OfferOut(BaseModel):
     id: str
     restaurant_id: str
@@ -73,6 +86,8 @@ class OfferOut(BaseModel):
     price_now_cents: int
     qty_left: int
     expires_at: dt.datetime
+    photo_url: Optional[str] = None
+    description: Optional[str] = None
 
 class ReservationCreateIn(BaseModel):
     offer_id: str
@@ -103,7 +118,7 @@ async def list_offers(restaurant_id: Optional[str]=None, db: AsyncSession=Depend
         out.append(OfferOut(
             id=o.id, restaurant_id=o.restaurant_id, title=o.title,
             price_cents=o.price_cents, price_now_cents=compute_dynamic_discount(now, o.expires_at, o.price_cents),
-            qty_left=o.qty_left, expires_at=o.expires_at
+            qty_left=o.qty_left, expires_at=o.expires_at, photo_url=o.photo_url, description=o.description
         ))
     return out
 
@@ -138,18 +153,6 @@ async def create_reservation(body: ReservationCreateIn, db: AsyncSession=Depends
         qr_payload=f"FOODY|{r.id}|{r.code}"
     )
 
-@router.get("/reservations", response_model=List[ReservationOut])
-async def list_reservations(restaurant_id: str = Query(...), status: Optional[str]=None, db: AsyncSession=Depends(get_db)):
-    q = select(FoodyReservation).where(FoodyReservation.restaurant_id==restaurant_id)
-    if status:
-        q = q.where(FoodyReservation.status==status)
-    q = q.order_by(FoodyReservation.created_at.desc()).limit(200)
-    res = (await db.execute(q)).scalars().all()
-    return [ReservationOut(
-        id=x.id, offer_id=x.offer_id, restaurant_id=x.restaurant_id, code=x.code,
-        status=x.status, expires_at=x.expires_at, qr_payload=f"FOODY|{x.id}|{x.code}"
-    ) for x in res]
-
 @router.get("/my_reservations", response_model=List[ReservationOut])
 async def my_reservations(buyer_tg_id: str = Query(...), db: AsyncSession=Depends(get_db)):
     q = select(FoodyReservation).where(FoodyReservation.buyer_tg_id == buyer_tg_id)
@@ -171,3 +174,106 @@ async def reservation_qr_png(reservation_id: str, db: AsyncSession=Depends(get_d
     img.save(bio, format="PNG")
     bio.seek(0)
     return StreamingResponse(bio, media_type="image/png")
+
+# ---------- Merchant API ----------
+class OfferCreateIn(BaseModel):
+    restaurant_id: str
+    title: str
+    price_cents: int
+    qty_total: int
+    expires_at: dt.datetime
+    description: Optional[str] = None
+    photo_url: Optional[str] = None
+
+class OfferPatchIn(BaseModel):
+    title: Optional[str] = None
+    price_cents: Optional[int] = None
+    qty_total: Optional[int] = None
+    qty_left: Optional[int] = None
+    expires_at: Optional[dt.datetime] = None
+    description: Optional[str] = None
+    photo_url: Optional[str] = None
+
+class OfferFull(BaseModel):
+    id: str
+    restaurant_id: str
+    title: str
+    price_cents: int
+    qty_total: int
+    qty_left: int
+    expires_at: dt.datetime
+    created_at: dt.datetime
+    description: Optional[str] = None
+    photo_url: Optional[str] = None
+
+@merchant.get("/offers", response_model=List[OfferFull])
+async def merchant_list_offers(restaurant_id: str = Query(...), x_foody_key: str = Header(alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
+    rest = await auth_restaurant_by_key(db, x_foody_key)
+    if rest.id != restaurant_id:
+        raise HTTPException(403, "restaurant mismatch")
+    q = select(FoodyOffer).where(FoodyOffer.restaurant_id==restaurant_id).order_by(FoodyOffer.created_at.desc())
+    res = (await db.execute(q)).scalars().all()
+    return [OfferFull(
+        id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents,
+        qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at,
+        created_at=o.created_at, description=o.description, photo_url=o.photo_url
+    ) for o in res]
+
+@merchant.post("/offers", response_model=OfferFull)
+async def merchant_create_offer(body: OfferCreateIn, x_foody_key: str = Header(alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
+    rest = await auth_restaurant_by_key(db, x_foody_key)
+    if rest.id != body.restaurant_id:
+        raise HTTPException(403, "restaurant mismatch")
+    o = FoodyOffer(
+        restaurant_id=body.restaurant_id,
+        title=body.title,
+        price_cents=body.price_cents,
+        qty_total=body.qty_total,
+        qty_left=body.qty_total,
+        expires_at=body.expires_at,
+        description=body.description,
+        photo_url=body.photo_url
+    )
+    db.add(o)
+    await db.commit()
+    return OfferFull(
+        id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents,
+        qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at,
+        created_at=o.created_at, description=o.description, photo_url=o.photo_url
+    )
+
+@merchant.patch("/offers/{offer_id}", response_model=OfferFull)
+async def merchant_patch_offer(offer_id: str, body: OfferPatchIn, x_foody_key: str = Header(alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
+    rest = await auth_restaurant_by_key(db, x_foody_key)
+    o = (await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(404, "not found")
+    if o.restaurant_id != rest.id:
+        raise HTTPException(403, "forbidden")
+    changed = False
+    for f in ["title","price_cents","qty_total","qty_left","expires_at","description","photo_url"]:
+        v = getattr(body, f)
+        if v is not None:
+            setattr(o, f, v); changed = True
+    if body.qty_total is not None and (o.qty_left > o.qty_total):
+        o.qty_left = o.qty_total
+        changed = True
+    if changed:
+        await db.commit()
+    return OfferFull(
+        id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents,
+        qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at,
+        created_at=o.created_at, description=o.description, photo_url=o.photo_url
+    )
+
+@merchant.delete("/offers/{offer_id}")
+async def merchant_delete_offer(offer_id: str, x_foody_key: str = Header(alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
+    rest = await auth_restaurant_by_key(db, x_foody_key)
+    o = (await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))).scalar_one_or_none()
+    if not o:
+        raise HTTPException(404, "not found")
+    if o.restaurant_id != rest.id:
+        raise HTTPException(403, "forbidden")
+    await db.execute(text("DELETE FROM foody_offers WHERE id = :id").bindparams(id=offer_id))
+    await db.commit()
+    return {"ok": True}
