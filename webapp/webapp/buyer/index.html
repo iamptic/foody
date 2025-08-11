@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Foody — Витрина</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/config.js"></script>
+  <script src="/web/buyer/js/miniapp_boot.js"></script>
+  <style>body{font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px} .card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0}</style>
+</head>
+<body>
+  <h1>🔥 Предложения рядом</h1>
+  <div id="offers"></div>
+  <script type="module">
+    const api = window.BACKEND_PUBLIC || location.origin;
+    const rid = 'RID_DEMO';
+    async function fetchOffers() {
+      const r = await fetch(`${api}/api/v1/offers?restaurant_id=${encodeURIComponent(rid)}`);
+      const data = await r.json();
+      const root = document.getElementById('offers'); root.innerHTML = '';
+      data.forEach(o=>{
+        const el = document.createElement('div'); el.className='card';
+        el.innerHTML = `<b>${o.title}</b><br>
+          Цена сейчас: ${(o.price_now_cents/100).toFixed(2)} ₽ <small>(от ${(o.price_cents/100).toFixed(2)} ₽)</small><br>
+          Остаток: ${o.qty_left}<br>
+          <button>Забронировать</button>`;
+        el.querySelector('button').onclick = async ()=>{
+          const tg = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) || {};
+          const buyerId = tg.user?.id || 'guest';
+          const r = await fetch(`${api}/api/v1/reservations`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({offer_id:o.id, buyer_tg_id:String(buyerId)})
+          });
+          if(!r.ok){ alert('Ошибка бронирования'); return; }
+          const res = await r.json();
+          alert('Бронь создана! Код: '+res.code);
+        };
+        root.appendChild(el);
+      });
+    }
+    fetchOffers().catch(console.error);
+  </script>
+</body></html>
