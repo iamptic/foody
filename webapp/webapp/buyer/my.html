@@ -7,17 +7,16 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
 :root{
-  --bg: var(--tg-theme-bg-color, #0f1115);
-  --text: var(--tg-theme-text-color, #e6e6e6);
-  --subtle: #9aa3b2;
-  --card: rgba(255,255,255,0.04);
-  --border: rgba(255,255,255,0.12);
-  --accent: var(--tg-theme-button-color, #7c5cff);
-  --accent-text: var(--tg-theme-button-text-color, #fff);
-  --danger: #ff5c5c;
-  --ok: #3ecf8e;
+  --bg: #f7f7fb;
+  --text: #12141a;
+  --subtle: #6b7280;
+  --card: #ffffff;
+  --border: #e6e7ee;
+  --accent: #6b5cff;
+  --accent-text: #ffffff;
+  --danger: #e11d48;
+  --ok: #10b981;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -30,11 +29,11 @@ h1,h2,h3{margin:0 0 12px}
 .section{margin:16px 0}
 .card{
   background:var(--card); border:1px solid var(--border);
-  border-radius:16px; padding:16px;
+  border-radius:16px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
 .input, select, textarea{
-  width:100%; background:#0b0d12; color:var(--text);
+  width:100%; background:#fff; color:var(--text);
   border:1px solid var(--border); border-radius:12px; padding:10px 12px;
 }
 label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
@@ -43,21 +42,18 @@ label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
   padding:10px 14px; border-radius:12px; border:1px solid var(--border);
   background:var(--accent); color:var(--accent-text); cursor:pointer;
 }
-.btn.ghost{ background:transparent; color:var(--text) }
-.btn.secondary{ background:#1a1f2b }
-.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle)}
+.btn.ghost{ background:#fff; color:var(--text) }
+.btn.secondary{ background:#eef2ff }
+.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle);background:#fff}
 .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
-.card-item{border-radius:14px; border:1px solid var(--border); background:#0b0d12; padding:12px}
+.card-item{border-radius:14px; border:1px solid var(--border); background:#fff; padding:12px}
 .card-item h3{font-size:16px; margin:0 0 4px}
 .empty{opacity:0.7; text-align:center; padding:24px 8px}
-.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; backdrop-filter: blur(2px); background:rgba(0,0,0,0.4)}
-.modal .dialog{width:min(520px,94vw); background:#0b0d12; border:1px solid var(--border); border-radius:16px; padding:16px}
-.modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:12px}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px 8px; border-bottom:1px solid var(--border); font-size:14px}
-hr{border:none; border-top:1px solid var(--border); margin:12px 0}
 .small{font-size:12px; color:var(--subtle)}
- img{width:92px;height:92px;border-radius:12px;border:1px solid var(--border);background:#0b0d12}</style>
+hr{border:none; border-top:1px solid var(--border); margin:12px 0}
+ img{width:92px;height:92px;border-radius:12px;border:1px solid var(--border);background:#fff}</style>
 </head>
 <body>
 <div class="container">

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.bot_webhook import bot, dp
 
-app = FastAPI(title="Foody WebApp+Bot UI v3")
+app = FastAPI(title="Foody WebApp+Bot v4 (light)")
 
 cors_origins = os.getenv("CORS_ORIGINS", "*")
 origins = [o.strip() for o in cors_origins.split(",")] if cors_origins else ["*"]

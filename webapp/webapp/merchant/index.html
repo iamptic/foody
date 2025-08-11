@@ -6,17 +6,16 @@
   <script src="/config.js"></script>
   <style>
 :root{
-  --bg: var(--tg-theme-bg-color, #0f1115);
-  --text: var(--tg-theme-text-color, #e6e6e6);
-  --subtle: #9aa3b2;
-  --card: rgba(255,255,255,0.04);
-  --border: rgba(255,255,255,0.12);
-  --accent: var(--tg-theme-button-color, #7c5cff);
-  --accent-text: var(--tg-theme-button-text-color, #fff);
-  --danger: #ff5c5c;
-  --ok: #3ecf8e;
+  --bg: #f7f7fb;
+  --text: #12141a;
+  --subtle: #6b7280;
+  --card: #ffffff;
+  --border: #e6e7ee;
+  --accent: #6b5cff;
+  --accent-text: #ffffff;
+  --danger: #e11d48;
+  --ok: #10b981;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -29,11 +28,11 @@ h1,h2,h3{margin:0 0 12px}
 .section{margin:16px 0}
 .card{
   background:var(--card); border:1px solid var(--border);
-  border-radius:16px; padding:16px;
+  border-radius:16px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
 .input, select, textarea{
-  width:100%; background:#0b0d12; color:var(--text);
+  width:100%; background:#fff; color:var(--text);
   border:1px solid var(--border); border-radius:12px; padding:10px 12px;
 }
 label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
@@ -42,21 +41,18 @@ label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
   padding:10px 14px; border-radius:12px; border:1px solid var(--border);
   background:var(--accent); color:var(--accent-text); cursor:pointer;
 }
-.btn.ghost{ background:transparent; color:var(--text) }
-.btn.secondary{ background:#1a1f2b }
-.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle)}
+.btn.ghost{ background:#fff; color:var(--text) }
+.btn.secondary{ background:#eef2ff }
+.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle);background:#fff}
 .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
-.card-item{border-radius:14px; border:1px solid var(--border); background:#0b0d12; padding:12px}
+.card-item{border-radius:14px; border:1px solid var(--border); background:#fff; padding:12px}
 .card-item h3{font-size:16px; margin:0 0 4px}
 .empty{opacity:0.7; text-align:center; padding:24px 8px}
-.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; backdrop-filter: blur(2px); background:rgba(0,0,0,0.4)}
-.modal .dialog{width:min(520px,94vw); background:#0b0d12; border:1px solid var(--border); border-radius:16px; padding:16px}
-.modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:12px}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px 8px; border-bottom:1px solid var(--border); font-size:14px}
-hr{border:none; border-top:1px solid var(--border); margin:12px 0}
 .small{font-size:12px; color:var(--subtle)}
-</style>
+hr{border:none; border-top:1px solid var(--border); margin:12px 0}
+ .muted{color:var(--subtle)}</style>
 </head>
 <body>
 <div class="container">
@@ -64,63 +60,58 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
   <div class="section card">
     <div class="row" style="justify-content:space-between">
       <h2>ЛК ресторана</h2>
-      <div class="row"><span class="badge">Статус</span><span class="badge">Проверяем…</span></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <h3>Заполните профиль</h3>
-      <div class="small">Добавьте телефон, адрес и город — так вас увидят покупатели</div>
-      <div class="actions" style="margin-top:10px">
-        <button class="btn ghost" onclick="alert('Скоро!')">Заполнить</button>
-      </div>
+      <div class="row"><span class="badge">Статус</span><span class="badge">Онлайн</span></div>
     </div>
 
+    <h3>Настройки доступа</h3>
+    <div class="row">
+      <div style="flex:1">
+        <label>Restaurant ID</label>
+        <input class="input" id="rid" placeholder="RID_DEMO" value="RID_DEMO"/>
+      </div>
+      <div style="flex:2">
+        <label>API Key</label>
+        <input class="input" id="apiKey" placeholder="вставьте ключ" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="btn" onclick="saveCfg()">Сохранить</button>
+      </div>
+    </div>
+    <div class="small muted">API ключ можно сгенерировать в бэкенде через /admin/generate_api_key (см. инструкции).</div>
+
     <hr>
+
     <h3>Новое предложение</h3>
     <div class="row">
       <div style="flex:1">
-        <label>Название*</label><input class="input" placeholder="Например: Набор выпечки"/>
+        <label>Название*</label><input class="input" id="title" placeholder="Например: Набор выпечки"/>
       </div>
       <div style="width:160px">
-        <label>Цена (₽)*</label><input class="input" type="number" min="1" placeholder="349"/>
+        <label>Цена (₽)*</label><input class="input" id="price" type="number" min="1" placeholder="349"/>
       </div>
       <div style="width:160px">
-        <label>Количество*</label><input class="input" type="number" min="1" placeholder="5"/>
+        <label>Количество*</label><input class="input" id="qty" type="number" min="1" value="5"/>
       </div>
     </div>
-    <label>Описание</label><textarea class="input" rows="3" placeholder="Коротко о составе и размерах"></textarea>
+    <label>Описание</label><textarea class="input" id="desc" rows="3" placeholder="Коротко о составе и размерах"></textarea>
+    <label>Фото (URL)</label><input class="input" id="photo" placeholder="https://...jpg"/>
     <div class="row">
       <div style="flex:1">
-        <label>Действует до</label><input class="input" type="datetime-local"/>
-        <div class="small">Локальное время.</div>
+        <label>Действует до*</label><input class="input" id="expires" type="datetime-local"/>
+        <div class="small muted">Локальное время.</div>
       </div>
-      <div style="flex:1">
-        <label>Фото (опционально)</label>
-        <div class="row">
-          <input class="input" placeholder="PNG/JPG до 4 МБ" disabled/>
-          <button class="btn ghost" onclick="alert('Загрузка появится после офферов')">Загрузить</button>
-        </div>
-      </div>
+      <div style="flex:1"></div>
     </div>
-    <div class="actions">
-      <button class="btn">Сохранить</button>
-      <button class="btn ghost">Сбросить</button>
-    </div>
-
-    <div class="section">
-      <h3>Быстрый старт</h3>
-      <ol class="small">
-        <li>Заполните профиль. Телефон, адрес, город — чтобы вас нашли.</li>
-        <li>Добавьте первое предложение. Название, фото, срок действия.</li>
-        <li>Держите остаток &gt; 0 — так карточка остаётся в выдаче.</li>
-        <li>Фото решает — 3:2 без текста и водяных знаков.</li>
-        <li>Чёткие цены — дисконт 40–70% повышает конверсию.</li>
-        <li>Время — деньги — ставьте «Действует до» ближе к закрытию.</li>
-      </ol>
+    <div class="row">
+      <button class="btn" onclick="createOffer()">Сохранить</button>
+      <button class="btn ghost" onclick="resetForm()">Сбросить</button>
     </div>
 
     <div class="section">
       <h3>Мои предложения</h3>
-      <div class="empty">Пока пусто. Добавьте первое предложение выше.</div>
+      <div id="offers" class="grid"></div>
+      <div id="emptyOffers" class="empty" style="display:none">Пока пусто.</div>
     </div>
 
     <div class="section">
@@ -133,21 +124,9 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
       </div>
       <div class="card">
         <table class="table" id="resTable">
-          <thead><tr><th>Код</th><th>Оффер</th><th>Покупатель</th><th>Статус</th><th>Действует до</th><th>Создано</th></tr></thead>
-          <tbody id="resBody"><tr><td colspan="6" class="small">Загрузите список...</td></tr></tbody>
+          <thead><tr><th>Код</th><th>Оффер</th><th>Покупатель</th><th>Статус</th><th>Действует до</th></tr></thead>
+          <tbody id="resBody"><tr><td colspan="5" class="small">Загрузите список...</td></tr></tbody>
         </table>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Настройки</h3>
-      <div class="row" style="align-items:flex-end">
-        <div style="flex:1">
-          <label>Активный ресторан</label>
-          <input class="input" id="rid" value="RID_DEMO"/>
-        </div>
-        <button class="btn ghost" onclick="alert('Создание ресторана добавим на следующем шаге')">Создать новый ресторан</button>
-        <button class="btn">Сохранить</button>
       </div>
     </div>
   </div>
@@ -155,14 +134,104 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
 
 <script>
   const api = window.BACKEND_PUBLIC || location.origin;
+  function saveCfg(){
+    localStorage.setItem('rid', document.getElementById('rid').value.trim());
+    localStorage.setItem('apiKey', document.getElementById('apiKey').value.trim());
+    loadOffers();
+  }
+  function loadCfg(){
+    document.getElementById('rid').value = localStorage.getItem('rid') || 'RID_DEMO';
+    document.getElementById('apiKey').value = localStorage.getItem('apiKey') || '';
+  }
+  loadCfg();
+
+  function resetForm(){
+    ['title','price','qty','desc','photo','expires'].forEach(id=>document.getElementById(id).value='');
+  }
+
+  function offerCard(o){
+    return `<div class="card-item">
+      <h3>${o.title}</h3>
+      <div class="small">ID: ${o.id}</div>
+      <div class="row" style="justify-content:space-between;margin-top:8px">
+        <div><b>${(o.price_cents/100).toFixed(2)} ₽</b><div class="small">ост: ${o.qty_left}/${o.qty_total}</div></div>
+        <div class="small">до ${new Date(o.expires_at).toLocaleString()}</div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" onclick="closeOffer('${o.id}')">Закрыть (qty_left=0)</button>
+        <button class="btn" onclick="delOffer('${o.id}')">Удалить</button>
+      </div>
+    </div>`;
+  }
+
+  async function loadOffers(){
+    const rid = (localStorage.getItem('rid')||'RID_DEMO').trim();
+    const key = (localStorage.getItem('apiKey')||'').trim();
+    if(!key){ document.getElementById('offers').innerHTML=''; document.getElementById('emptyOffers').style.display='block'; return; }
+    const u = new URL(`${api}/api/v1/merchant/offers`); u.searchParams.set('restaurant_id', rid);
+    const r = await fetch(u, { headers:{'X-Foody-Key': key} });
+    if(!r.ok){ document.getElementById('emptyOffers').style.display='block'; return; }
+    const arr = await r.json();
+    const root = document.getElementById('offers');
+    root.innerHTML = arr.map(offerCard).join('');
+    document.getElementById('emptyOffers').style.display = arr.length ? 'none':'block';
+  }
+  loadOffers().catch(console.error);
+
+  async function createOffer(){
+    const rid = (localStorage.getItem('rid')||'RID_DEMO').trim();
+    const key = (localStorage.getItem('apiKey')||'').trim();
+    const body = {
+      restaurant_id: rid,
+      title: document.getElementById('title').value.trim(),
+      price_cents: Math.round(parseFloat(document.getElementById('price').value || '0')*100),
+      qty_total: parseInt(document.getElementById('qty').value || '1'),
+      expires_at: new Date(document.getElementById('expires').value).toISOString(),
+      description: document.getElementById('desc').value,
+      photo_url: document.getElementById('photo').value
+    };
+    const r = await fetch(`${api}/api/v1/merchant/offers`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Foody-Key': key},
+      body: JSON.stringify(body)
+    });
+    if(!r.ok){ alert('Ошибка создания оффера'); return; }
+    resetForm(); loadOffers();
+    alert('Оффер создан! Он уже доступен на витрине, если qty_left>0 и не истёк.');
+  }
+
+  async function closeOffer(id){
+    const rid = (localStorage.getItem('rid')||'RID_DEMO').trim();
+    const key = (localStorage.getItem('apiKey')||'').trim();
+    const r = await fetch(`${api}/api/v1/merchant/offers/${id}`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','X-Foody-Key': key},
+      body: JSON.stringify({qty_left: 0})
+    });
+    if(!r.ok){ alert('Ошибка закрытия'); return; }
+    loadOffers();
+  }
+
+  async function delOffer(id){
+    const rid = (localStorage.getItem('rid')||'RID_DEMO').trim();
+    const key = (localStorage.getItem('apiKey')||'').trim();
+    const r = await fetch(`${api}/api/v1/merchant/offers/${id}`, {
+      method:'DELETE',
+      headers:{'X-Foody-Key': key}
+    });
+    if(!r.ok){ alert('Ошибка удаления'); return; }
+    loadOffers();
+  }
+
   async function loadRes(filter){
-    const rid = document.getElementById('rid').value.trim() || 'RID_DEMO';
+    const rid = (localStorage.getItem('rid')||'RID_DEMO').trim();
     const u = new URL(`${api}/api/v1/reservations`);
     u.searchParams.set('restaurant_id', rid);
     if(filter && filter!=='all') u.searchParams.set('status', filter);
-    const r = await fetch(u); const arr = await r.json();
+    const r = await fetch(u);
+    const arr = await r.json();
     const tb = document.getElementById('resBody');
-    if(!arr.length){ tb.innerHTML = '<tr><td class="small" colspan="6">Броней пока нет</td></tr>'; return; }
+    if(!arr.length){ tb.innerHTML = '<tr><td class="small" colspan="5">Броней пока нет</td></tr>'; return; }
     tb.innerHTML = arr.map(x=>`
       <tr>
         <td>${x.code}</td>
@@ -170,7 +239,6 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
         <td>${x.buyer_tg_id||''}</td>
         <td>${x.status}</td>
         <td>${new Date(x.expires_at).toLocaleString()}</td>
-        <td>${new Date().toLocaleString()}</td>
       </tr>
     `).join('');
   }

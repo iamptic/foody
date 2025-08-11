@@ -7,17 +7,16 @@
   <script src="/config.js"></script>
   <style>
 :root{
-  --bg: var(--tg-theme-bg-color, #0f1115);
-  --text: var(--tg-theme-text-color, #e6e6e6);
-  --subtle: #9aa3b2;
-  --card: rgba(255,255,255,0.04);
-  --border: rgba(255,255,255,0.12);
-  --accent: var(--tg-theme-button-color, #7c5cff);
-  --accent-text: var(--tg-theme-button-text-color, #fff);
-  --danger: #ff5c5c;
-  --ok: #3ecf8e;
+  --bg: #f7f7fb;
+  --text: #12141a;
+  --subtle: #6b7280;
+  --card: #ffffff;
+  --border: #e6e7ee;
+  --accent: #6b5cff;
+  --accent-text: #ffffff;
+  --danger: #e11d48;
+  --ok: #10b981;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -30,11 +29,11 @@ h1,h2,h3{margin:0 0 12px}
 .section{margin:16px 0}
 .card{
   background:var(--card); border:1px solid var(--border);
-  border-radius:16px; padding:16px;
+  border-radius:16px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
 .input, select, textarea{
-  width:100%; background:#0b0d12; color:var(--text);
+  width:100%; background:#fff; color:var(--text);
   border:1px solid var(--border); border-radius:12px; padding:10px 12px;
 }
 label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
@@ -43,20 +42,17 @@ label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
   padding:10px 14px; border-radius:12px; border:1px solid var(--border);
   background:var(--accent); color:var(--accent-text); cursor:pointer;
 }
-.btn.ghost{ background:transparent; color:var(--text) }
-.btn.secondary{ background:#1a1f2b }
-.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle)}
+.btn.ghost{ background:#fff; color:var(--text) }
+.btn.secondary{ background:#eef2ff }
+.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle);background:#fff}
 .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
-.card-item{border-radius:14px; border:1px solid var(--border); background:#0b0d12; padding:12px}
+.card-item{border-radius:14px; border:1px solid var(--border); background:#fff; padding:12px}
 .card-item h3{font-size:16px; margin:0 0 4px}
 .empty{opacity:0.7; text-align:center; padding:24px 8px}
-.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; backdrop-filter: blur(2px); background:rgba(0,0,0,0.4)}
-.modal .dialog{width:min(520px,94vw); background:#0b0d12; border:1px solid var(--border); border-radius:16px; padding:16px}
-.modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:12px}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px 8px; border-bottom:1px solid var(--border); font-size:14px}
-hr{border:none; border-top:1px solid var(--border); margin:12px 0}
 .small{font-size:12px; color:var(--subtle)}
+hr{border:none; border-top:1px solid var(--border); margin:12px 0}
 </style>
 </head>
 <body>
@@ -74,41 +70,15 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
     <div id="offers" class="grid"></div>
     <div id="empty" class="empty" style="display:none">Пока ничего нет. Загляните чуть позже.</div>
   </div>
-  <div class="small">Локальное время.</div>
-</div>
-
-<div id="bookModal" class="modal">
-  <div class="dialog">
-    <h3>Бронирование</h3>
-    <label>Количество</label>
-    <input id="qty" class="input" type="number" min="1" value="1" />
-    <label>Имя (опционально)</label>
-    <input id="buyerName" class="input" placeholder="Как к вам обращаться?" />
-    <div class="actions">
-      <button class="btn ghost" onclick="closeBook()">Отмена</button>
-      <button class="btn" onclick="confirmBook()">Забронировать</button>
-    </div>
-  </div>
-</div>
-
-<div id="okModal" class="modal">
-  <div class="dialog" style="text-align:center">
-    <h3>Готово!</h3>
-    <p>Ваш код: <span id="okCode" style="font-size:18px"></span></p>
-    <div class="actions" style="justify-content:center">
-      <a id="okLink" class="btn">Ок</a>
-    </div>
-  </div>
 </div>
 
 <script type="module">
   (function(){const tg=window.Telegram&&window.Telegram.WebApp;if(!tg)return;try{tg.ready();tg.expand();}catch(e){}})();
   const api = window.BACKEND_PUBLIC || location.origin;
-  const state = { offers:[], current:null };
+  const state = { offers:[] };
 
   function asRub(c){return (c/100).toFixed(2)+' ₽'}
   function card(o){
-    const disc = Math.max(0, o.price_cents - o.price_now_cents);
     return `<div class="card-item">
       <h3>${o.title}</h3>
       <div class="row"><div class="badge">до ${new Date(o.expires_at).toLocaleTimeString()}</div><div class="badge">остаток: ${o.qty_left}</div></div>
@@ -123,7 +93,7 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
     const root = document.getElementById('offers');
     root.innerHTML = state.offers.map(card).join('');
     document.getElementById('empty').style.display = state.offers.length ? 'none':'block';
-    root.querySelectorAll('button.btn').forEach(b=>b.onclick = ()=>openBook(b.dataset.id));
+    root.querySelectorAll('button.btn').forEach(b=>b.onclick = ()=>book(b.dataset.id));
   }
 
   function sortApply(){
@@ -142,24 +112,16 @@ hr{border:none; border-top:1px solid var(--border); margin:12px 0}
   document.getElementById('sort').onchange = ()=>{ sortApply(); render(); }
   load().catch(console.error);
 
-  function openBook(id){ state.current=id; document.getElementById('bookModal').style.display='flex'; }
-  function closeBook(){ document.getElementById('bookModal').style.display='none'; }
-  window.closeBook = closeBook;
-
-  async function confirmBook(){
+  async function book(id){
     const tg = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) || {}
     const buyerId = tg.user?.id || 'guest';
     const r = await fetch(`${api}/api/v1/reservations`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({offer_id: state.current, buyer_tg_id:String(buyerId)})
+      body: JSON.stringify({offer_id:id, buyer_tg_id:String(buyerId)})
     });
     if(!r.ok){ alert('Ошибка бронирования'); return; }
     const res = await r.json();
-    closeBook();
-    document.getElementById('okCode').textContent = res.code;
-    document.getElementById('okLink').href = `receipt.html?id=${encodeURIComponent(res.id)}&code=${encodeURIComponent(res.code)}`;
-    document.getElementById('okModal').style.display='flex';
+    location.href = `buyer/receipt.html?id=${encodeURIComponent(res.id)}&code=${encodeURIComponent(res.code)}`;
   }
-  window.confirmBook = confirmBook;
 </script>
 </body></html>
