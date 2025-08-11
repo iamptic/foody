@@ -1,4 +1,3 @@
-# app/bot_webhook.py — Aiogram v3 webhook inside FastAPI
 import os
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo

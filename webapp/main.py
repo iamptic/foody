@@ -1,11 +1,10 @@
-# main.py — WebApp + Bot Service
 import os
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.bot_webhook import bot, dp
 
-__version__ = "foody-webapp-bot-2025-08-12"
+__version__ = "foody-webapp-bot-v2"
 
 app = FastAPI(title="Foody WebApp+Bot", version=__version__)
 
@@ -19,11 +18,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static MiniApp pages
 app.mount("/web", StaticFiles(directory="webapp", html=True), name="web")
 
 BACKEND_PUBLIC = os.getenv("BACKEND_PUBLIC", "")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "foodySecret123")
+WEBAPP_PUBLIC = os.getenv("WEBAPP_PUBLIC", "")
 
 @app.get("/config.js")
 def config_js():
@@ -33,11 +32,10 @@ def config_js():
 @app.on_event("startup")
 async def _startup():
     # set webhook
-    url = os.getenv("WEBAPP_PUBLIC", "") or os.getenv("BACKEND_PUBLIC", "")
-    # prefer explicit WEBAPP_PUBLIC; fallback to BACKEND_PUBLIC if same domain
+    url = WEBAPP_PUBLIC or os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
     if not url:
-        # Best effort guess from Render/Railway envs, leave empty otherwise
-        pass
+        # fallback: guess from BACKEND_PUBLIC domain (not ideal). Better to set WEBAPP_PUBLIC in env.
+        url = BACKEND_PUBLIC
     webhook_url = (url.rstrip("/")) + "/tg/webhook"
     await bot.set_webhook(url=webhook_url, secret_token=WEBHOOK_SECRET)
 

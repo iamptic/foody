@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Мои брони</title>
+  <script src="/config.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>body{font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px} .card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0} img{{width:100px;height:100px}}</style>
+</head>
+<body>
+  <h1>Мои брони</h1>
+  <div id="list"></div>
+  <p><a href="index.html">← Назад к витрине</a></p>
+  <script>
+    (function(){const tg=window.Telegram&&window.Telegram.WebApp;if(!tg)return;try{tg.ready();tg.expand();}catch(e){}try{localStorage.setItem('tg_initData',tg.initData||'');localStorage.setItem('tg_initDataUnsafe',JSON.stringify(tg.initDataUnsafe||{}));}catch(e){}})();
+    const api = window.BACKEND_PUBLIC || location.origin;
+    async function load() {
+      let buyerId = 'guest';
+      try { const tg = (Telegram.WebApp && Telegram.WebApp.initDataUnsafe) || {}; if (tg.user && tg.user.id) buyerId = tg.user.id; } catch(e){}
+      const r = await fetch(`${api}/api/v1/my_reservations?buyer_tg_id=${encodeURIComponent(String(buyerId))}`);
+      const arr = await r.json();
+      const root = document.getElementById('list'); root.innerHTML='';
+      arr.forEach(x=>{
+        const el = document.createElement('div'); el.className='card';
+        el.innerHTML = `<b>${x.offer_id}</b><br>Статус: ${x.status}<br>Действует до: ${new Date(x.expires_at).toLocaleString()}<br>`;
+        const img = document.createElement('img');
+        img.src = `${api}/api/v1/reservations/${encodeURIComponent(x.id)}/qr.png`;
+        el.appendChild(img);
+        root.appendChild(el);
+      });
+    }
+    load().catch(console.error);
+  </script>
+</body></html>

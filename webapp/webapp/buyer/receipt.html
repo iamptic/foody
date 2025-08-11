@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Бронь — QR</title>
+  <script src="/config.js"></script>
+  <style>body{font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;text-align:center}</style>
+</head>
+<body>
+  <h1>Готово! Покажите этот QR при выдаче</h1>
+  <div id="qr"></div>
+  <p><a href="my.html">Перейти к «Мои брони»</a></p>
+  <script>
+    const api = window.BACKEND_PUBLIC || location.origin;
+    const u = new URL(location.href);
+    const id = u.searchParams.get('id');
+    const code = u.searchParams.get('code');
+    const img = document.createElement('img');
+    img.src = `${api}/api/v1/reservations/${encodeURIComponent(id)}/qr.png`;
+    img.alt = 'QR';
+    img.style.width='280px'; img.style.height='280px';
+    document.getElementById('qr').appendChild(img);
+  </script>
+</body></html>
