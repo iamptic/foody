@@ -5,30 +5,86 @@
   <title>Мои брони</title>
   <script src="/config.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>body{font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px} .card{border:1px solid #ddd;border-radius:12px;padding:12px;margin:12px 0} img{{width:100px;height:100px}}</style>
+  <style>
+:root{
+  --bg: var(--tg-theme-bg-color, #0f1115);
+  --text: var(--tg-theme-text-color, #e6e6e6);
+  --subtle: #9aa3b2;
+  --card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.12);
+  --accent: var(--tg-theme-button-color, #7c5cff);
+  --accent-text: var(--tg-theme-button-text-color, #fff);
+  --danger: #ff5c5c;
+  --ok: #3ecf8e;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; padding:16px;
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;
+  color:var(--text); background:var(--bg);
+}
+h1,h2,h3{margin:0 0 12px}
+.container{max-width:920px;margin:0 auto}
+.section{margin:16px 0}
+.card{
+  background:var(--card); border:1px solid var(--border);
+  border-radius:16px; padding:16px;
+}
+.row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.input, select, textarea{
+  width:100%; background:#0b0d12; color:var(--text);
+  border:1px solid var(--border); border-radius:12px; padding:10px 12px;
+}
+label{font-size:13px; color:var(--subtle); display:block; margin:6px 0}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:10px 14px; border-radius:12px; border:1px solid var(--border);
+  background:var(--accent); color:var(--accent-text); cursor:pointer;
+}
+.btn.ghost{ background:transparent; color:var(--text) }
+.btn.secondary{ background:#1a1f2b }
+.badge{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--subtle)}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px}
+.card-item{border-radius:14px; border:1px solid var(--border); background:#0b0d12; padding:12px}
+.card-item h3{font-size:16px; margin:0 0 4px}
+.empty{opacity:0.7; text-align:center; padding:24px 8px}
+.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; backdrop-filter: blur(2px); background:rgba(0,0,0,0.4)}
+.modal .dialog{width:min(520px,94vw); background:#0b0d12; border:1px solid var(--border); border-radius:16px; padding:16px}
+.modal .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:12px}
+.table{width:100%; border-collapse:collapse}
+.table th,.table td{padding:10px 8px; border-bottom:1px solid var(--border); font-size:14px}
+hr{border:none; border-top:1px solid var(--border); margin:12px 0}
+.small{font-size:12px; color:var(--subtle)}
+ img{width:92px;height:92px;border-radius:12px;border:1px solid var(--border);background:#0b0d12}</style>
 </head>
 <body>
+<div class="container">
   <h1>Мои брони</h1>
-  <div id="list"></div>
-  <p><a href="index.html">← Назад к витрине</a></p>
-  <script>
-    (function(){const tg=window.Telegram&&window.Telegram.WebApp;if(!tg)return;try{tg.ready();tg.expand();}catch(e){}try{localStorage.setItem('tg_initData',tg.initData||'');localStorage.setItem('tg_initDataUnsafe',JSON.stringify(tg.initDataUnsafe||{}));}catch(e){}})();
-    const api = window.BACKEND_PUBLIC || location.origin;
-    async function load() {
-      let buyerId = 'guest';
-      try { const tg = (Telegram.WebApp && Telegram.WebApp.initDataUnsafe) || {}; if (tg.user && tg.user.id) buyerId = tg.user.id; } catch(e){}
-      const r = await fetch(`${api}/api/v1/my_reservations?buyer_tg_id=${encodeURIComponent(String(buyerId))}`);
-      const arr = await r.json();
-      const root = document.getElementById('list'); root.innerHTML='';
-      arr.forEach(x=>{
-        const el = document.createElement('div'); el.className='card';
-        el.innerHTML = `<b>${x.offer_id}</b><br>Статус: ${x.status}<br>Действует до: ${new Date(x.expires_at).toLocaleString()}<br>`;
-        const img = document.createElement('img');
-        img.src = `${api}/api/v1/reservations/${encodeURIComponent(x.id)}/qr.png`;
-        el.appendChild(img);
-        root.appendChild(el);
-      });
-    }
-    load().catch(console.error);
-  </script>
+  <div id="list" class="section card"></div>
+</div>
+<script>
+  (function(){const tg=window.Telegram&&window.Telegram.WebApp;if(!tg)return;try{tg.ready();tg.expand();}catch(e){}try{localStorage.setItem('tg_initData',tg.initData||'');localStorage.setItem('tg_initDataUnsafe',JSON.stringify(tg.initDataUnsafe||{}));}catch(e){}})();
+  const api = window.BACKEND_PUBLIC || location.origin;
+  async function load() {
+    let buyerId = 'guest';
+    try { const tg = (Telegram.WebApp && Telegram.WebApp.initDataUnsafe) || {}; if (tg.user && tg.user.id) buyerId = tg.user.id; } catch(e){}
+    const r = await fetch(`${api}/api/v1/my_reservations?buyer_tg_id=${encodeURIComponent(String(buyerId))}`);
+    const arr = await r.json();
+    const root = document.getElementById('list');
+    if(!arr.length){ root.innerHTML = '<div class="empty">Броней пока нет</div>'; return; }
+    root.innerHTML = arr.map(x=>`
+      <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0">
+        <div>
+          <div><b>${x.offer_id}</b></div>
+          <div class="small">Статус: ${x.status}</div>
+          <div class="small">Действует до: ${new Date(x.expires_at).toLocaleString()}</div>
+        </div>
+        <img src="${api}/api/v1/reservations/${encodeURIComponent(x.id)}/qr.png" alt="QR">
+      </div>
+    `).join('');
+  }
+  load().catch(console.error);
+</script>
 </body></html>

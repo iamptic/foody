@@ -4,9 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.bot_webhook import bot, dp
 
-__version__ = "foody-webapp-bot-v2"
-
-app = FastAPI(title="Foody WebApp+Bot", version=__version__)
+app = FastAPI(title="Foody WebApp+Bot UI v3")
 
 cors_origins = os.getenv("CORS_ORIGINS", "*")
 origins = [o.strip() for o in cors_origins.split(",")] if cors_origins else ["*"]
@@ -34,7 +32,6 @@ async def _startup():
     # set webhook
     url = WEBAPP_PUBLIC or os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
     if not url:
-        # fallback: guess from BACKEND_PUBLIC domain (not ideal). Better to set WEBAPP_PUBLIC in env.
         url = BACKEND_PUBLIC
     webhook_url = (url.rstrip("/")) + "/tg/webhook"
     await bot.set_webhook(url=webhook_url, secret_token=WEBHOOK_SECRET)
@@ -55,4 +52,4 @@ async def tg_webhook(request: Request):
 
 @app.get("/")
 def root():
-    return {"ok": True, "service": "webapp-bot", "version": __version__}
+    return {"ok": True, "service": "webapp-bot"}
