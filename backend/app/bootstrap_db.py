@@ -1,4 +1,3 @@
-# app/bootstrap_db.py — FIXED: execute statements one-by-one for asyncpg
 import os, asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -26,12 +25,10 @@ async def run():
 
     engine = create_async_engine(db_url, echo=False, pool_pre_ping=True, future=True)
 
-    # Run DDL
     async with engine.begin() as conn:
         for stmt in DDL:
             await conn.exec_driver_sql(stmt)
 
-    # Optional seed
     if os.getenv("SEED_DEMO", "0") == "1":
         async with engine.begin() as conn:
             for stmt in SEED:

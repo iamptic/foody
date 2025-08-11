@@ -1,11 +1,14 @@
-# app/features/offers_reservations_foody.py
-import os, datetime as dt, uuid, secrets
+import os, datetime as dt, uuid, secrets, io
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
 from sqlalchemy import String, DateTime, ForeignKey, text, select, Float, Integer
+
+import qrcode
+from qrcode.image.pil import PilImage
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -147,28 +150,24 @@ async def list_reservations(restaurant_id: str = Query(...), status: Optional[st
         status=x.status, expires_at=x.expires_at, qr_payload=f"FOODY|{x.id}|{x.code}"
     ) for x in res]
 
-@router.post("/reservations/{reservation_id}/redeem", response_model=ReservationOut)
-async def redeem_reservation(reservation_id: str, body: RedeemIn, db: AsyncSession=Depends(get_db)):
-    now = dt.datetime.now(dt.timezone.utc)
+@router.get("/my_reservations", response_model=List[ReservationOut])
+async def my_reservations(buyer_tg_id: str = Query(...), db: AsyncSession=Depends(get_db)):
+    q = select(FoodyReservation).where(FoodyReservation.buyer_tg_id == buyer_tg_id)
+    q = q.order_by(FoodyReservation.created_at.desc()).limit(100)
+    res = (await db.execute(q)).scalars().all()
+    return [ReservationOut(
+        id=x.id, offer_id=x.offer_id, restaurant_id=x.restaurant_id, code=x.code,
+        status=x.status, expires_at=x.expires_at, qr_payload=f"FOODY|{x.id}|{x.code}"
+    ) for x in res]
+
+@router.get("/reservations/{reservation_id}/qr.png")
+async def reservation_qr_png(reservation_id: str, db: AsyncSession=Depends(get_db)):
     r = (await db.execute(select(FoodyReservation).where(FoodyReservation.id==reservation_id))).scalar_one_or_none()
     if not r:
         raise HTTPException(404, "reservation not found")
-    if r.code != body.code:
-        raise HTTPException(400, "code mismatch")
-    if r.status == "redeemed":
-        return ReservationOut(
-            id=r.id, offer_id=r.offer_id, restaurant_id=r.restaurant_id, code=r.code,
-            status=r.status, expires_at=r.expires_at, qr_payload=f"FOODY|{r.id}|{r.code}"
-        )
-    if r.expires_at <= now:
-        r.status = "expired"
-        await db.commit()
-        raise HTTPException(400, "reservation expired")
-
-    r.status = "redeemed"
-    r.redeemed_at = now
-    await db.commit()
-    return ReservationOut(
-        id=r.id, offer_id=r.offer_id, restaurant_id=r.restaurant_id, code=r.code,
-        status=r.status, expires_at=r.expires_at, qr_payload=f"FOODY|{r.id}|{r.code}"
-    )
+    payload = f"FOODY|{r.id}|{r.code}"
+    img = qrcode.make(payload, image_factory=PilImage)
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    bio.seek(0)
+    return StreamingResponse(bio, media_type="image/png")

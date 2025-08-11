@@ -1,10 +1,10 @@
-# main.py — Backend Service (safe boot)
-import os, traceback
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.bootstrap_db import run as run_migrations
+from app.features.offers_reservations_foody import router as offers_router
 
-__version__ = "foody-backend-service-safe-2025-08-12"
+__version__ = "foody-backend-service-v2-2025-08-11T22:58:03.542766"
 
 app = FastAPI(title="Foody Backend", version=__version__)
 
@@ -19,24 +19,11 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-async def _startup():
-    # 1) migrations (optional)
+async def _run_migs():
     if os.getenv("RUN_MIGRATIONS", "1") == "1":
-        try:
-            await run_migrations()
-            print("[startup] migrations: OK")
-        except Exception as e:
-            print("[startup] migrations FAILED:", e)
-            traceback.print_exc()
+        await run_migrations()
 
-    # 2) lazy import routers after migrations
-    try:
-        from app.features.offers_reservations_foody import router as offers_router
-        app.include_router(offers_router)
-        print("[startup] router mounted: offers/reservations (foody_*)")
-    except Exception as e:
-        print("[startup] router mount FAILED:", e)
-        traceback.print_exc()
+app.include_router(offers_router)
 
 @app.get("/health")
 def health():
@@ -45,11 +32,3 @@ def health():
 @app.get("/")
 def root():
     return {"ok": True, "service": "backend", "version": __version__}
-
-@app.get("/diag/env")
-def diag_env():
-    safe = {k: v for k, v in os.environ.items() if k in {
-        "DATABASE_URL","RUN_MIGRATIONS","SEED_DEMO","CORS_ORIGINS"
-    }}
-    redacted = {k: ("***" if k=="DATABASE_URL" else v) for k,v in safe.items()}
-    return {"env": redacted}
