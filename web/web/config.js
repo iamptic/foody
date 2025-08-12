@@ -1,0 +1,1 @@
+window.BACKEND_PUBLIC = window.BACKEND_PUBLIC || 'https://foodyback-production.up.railway.app';

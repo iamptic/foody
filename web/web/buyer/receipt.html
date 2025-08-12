@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Квитанция</title><link rel="stylesheet" href="/web/style.css"/></head><body>
+<div class="container"><h2>Квитанция</h2><div id="box" class="card">Загрузка…</div></div>
+<script>
+const api=window.BACKEND_PUBLIC;
+const id=new URL(location).searchParams.get('id');
+(async ()=>{
+  const r=await fetch(`${api}/api/v1/reservations/${encodeURIComponent(id)}`);
+  const x=await r.json();
+  document.getElementById('box').innerHTML=`<div class="small">Reservation ID</div><div class="kbd">${x.id}</div>
+  <div class="small" style="margin-top:6px">Код</div><div class="kbd">${x.code}</div>`;
+})();
+</script></body></html>
