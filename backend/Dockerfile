@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 WORKDIR /app
-ARG CACHE_BUST=2025-08-12-bk5
+ARG CACHE_BUST=2025-08-12-bk6
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
