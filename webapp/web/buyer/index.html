@@ -5,16 +5,26 @@
   <h2>🛒 Витрина</h2>
   <div class="card">
     <div class="row">
-      <div class="col"><label class="small">Restaurant ID (опц.)</label><input id="rid" class="input" placeholder="RID_DEMO"/></div>
+      <div class="col"><label class="small">Город (пресет)</label>
+        <select id="city" class="input">
+          <option value="">— Не выбрано —</option>
+          <option value="55.7558,37.6176">Москва</option>
+          <option value="59.9343,30.3351">Санкт‑Петербург</option>
+          <option value="56.8389,60.6057">Екатеринбург</option>
+          <option value="55.0302,82.9204">Новосибирск</option>
+          <option value="43.1176,131.899">Владивосток</option>
+        </select>
+      </div>
       <div class="col"><label class="small">Радиус, км</label><input id="radius" class="input" placeholder="3"/></div>
     </div>
     <div class="row">
       <div class="col"><label class="small">Lat</label><input id="lat" class="input" placeholder="авто"/></div>
       <div class="col"><label class="small">Lng</label><input id="lng" class="input" placeholder="авто"/></div>
     </div>
-    <div style="margin-top:8px">
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="btnGeo">📍 Моя геолокация</button>
       <button class="btn" id="btnLoad">Обновить предложения</button>
+      <button class="btn secondary" id="btnSave">Сохранить фильтры</button>
     </div>
   </div>
   <div id="list"></div>
@@ -25,9 +35,28 @@ const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 function priceFmt(c){return (c/100).toFixed(2).replace('.',',')+' ₽'}
 
+function saveFilters(){
+  localStorage.setItem('foody_filters', JSON.stringify({
+    lat: document.getElementById('lat').value.trim(),
+    lng: document.getElementById('lng').value.trim(),
+    radius: document.getElementById('radius').value.trim(),
+    city: document.getElementById('city').value
+  }));
+  toast('Фильтры сохранены');
+}
+function loadFilters(){
+  try{
+    const f=JSON.parse(localStorage.getItem('foody_filters')||'{}');
+    if(f.city) document.getElementById('city').value=f.city;
+    if(f.lat) document.getElementById('lat').value=f.lat;
+    if(f.lng) document.getElementById('lng').value=f.lng;
+    if(f.radius) document.getElementById('radius').value=f.radius;
+  }catch(e){}
+}
+
 async function loadOffers(){
   const base=window.BACKEND_PUBLIC;
-  const rid=document.getElementById('rid').value.trim();
+  const rid=document.getElementById('rid')?.value?.trim?.()||'';
   const lat=document.getElementById('lat').value.trim();
   const lng=document.getElementById('lng').value.trim();
   const radius=document.getElementById('radius').value.trim();
@@ -40,18 +69,18 @@ async function loadOffers(){
       if(radius) p.set('radius_km', radius);
     }
     const r=await fetch(`${base}/api/v1/offers?${p.toString()}`);
-    try { return await r.json(); } catch { return []; }
+    return r.ok ? r.json() : [];
   }
 
   let data=await fetchOffers(true);
   if(Array.isArray(data) && data.length===0 && lat && lng){
-    // fallback без гео
+    // Фолбэк без гео, чтобы список не пропадал
     data=await fetchOffers(false);
   }
 
   const list=document.getElementById('list'); list.innerHTML='';
   if(!Array.isArray(data)||data.length===0){
-    list.innerHTML='<div class="card muted">Пока пусто (попробуйте без гео/радиуса)</div>'; return;
+    list.innerHTML='<div class="card muted">Пока пусто (попробуйте отключить гео/радиус)</div>'; return;
   }
   data.forEach(o=>{
     const left=o.qty_left; const exp=new Date(o.expires_at);
@@ -75,10 +104,12 @@ async function loadOffers(){
 async function reserve(offerId){
   const base=window.BACKEND_PUBLIC;
   const tgid=window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'demo';
-  const r=await fetch(`${base}/api/v1/reservations`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({offer_id:offerId, buyer_tg_id:String(tgid)})});
+  const r=await fetch(`${base}/api/v1/reservations`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({offer_id:offerId, buyer_tg_id:String(tgid)})
+  });
   if(!r.ok){toast('Ошибка брони');return;}
   const data=await r.json();
-  // остаёмся внутри mini app
   location.assign(`/web/buyer/receipt.html?id=${encodeURIComponent(data.id)}`);
 }
 
@@ -88,9 +119,14 @@ document.getElementById('btnGeo').onclick=()=>{
     document.getElementById('lat').value=pos.coords.latitude.toFixed(6);
     document.getElementById('lng').value=pos.coords.longitude.toFixed(6);
     if(!document.getElementById('radius').value) document.getElementById('radius').value='3';
-    loadOffers();
+    saveFilters(); loadOffers();
   },err=>toast('Геолокация недоступна'));
 };
-window.addEventListener('load', loadOffers);
+document.getElementById('city').onchange=(e)=>{
+  const v=e.target.value;
+  if(v){ const [la,ln]=v.split(','); document.getElementById('lat').value=la; document.getElementById('lng').value=ln; }
+};
+document.getElementById('btnSave').onclick=saveFilters;
+window.addEventListener('load', ()=>{ loadFilters(); loadOffers(); });
 </script>
 </body></html>

@@ -5,7 +5,7 @@
   <h2>👨‍🍳 ЛК партнёра</h2>
   <div class="card">
     <div class="row">
-      <div class="col"><label class="small">Restaurant ID</label><input id="rid" class="input" placeholder="RID_DEMO"/></div>
+      <div class="col"><label class="small">Restaurant ID</label><input id="rid" class="input" placeholder="RID_..."/></div>
       <div class="col"><label class="small">API Key</label><input id="apikey" class="input" placeholder="ваш ключ"/></div>
     </div>
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -19,13 +19,14 @@
     <h3>Новое предложение</h3>
     <div class="row">
       <div class="col"><input id="title" class="input" placeholder="Название"/></div>
-      <div class="col"><input id="price" class="input" placeholder="Цена в копейках (напр. 19900)"/></div>
+      <div class="col"><input id="price" class="input" placeholder="Цена в копейках (напр. 19900)" inputmode="numeric"/></div>
     </div>
     <div class="row">
-      <div class="col"><input id="qty_total" class="input" placeholder="Всего ед. (напр. 10)"/></div>
-      <div class="col"><input id="qty_left" class="input" placeholder="Осталось (опц.)"/></div>
-      <div class="col"><input id="expires" class="input" placeholder="ГГГГ-ММ-ДДЧЧ:ММZ (UTC)"/></div>
+      <div class="col"><input id="qty_total" class="input" placeholder="Всего ед. (напр. 10)" inputmode="numeric"/></div>
+      <div class="col"><input id="qty_left" class="input" placeholder="Осталось (опц.)" inputmode="numeric"/></div>
+      <div class="col"><input id="expires" type="datetime-local" class="input" placeholder="Срок (локальное время)"/></div>
     </div>
+    <div class="muted small" id="tzHint"></div>
     <div style="margin-top:8px"><button class="btn" id="btnCreate">Сохранить</button></div>
   </div>
 
@@ -39,46 +40,55 @@
     </div>
     <div id="table"></div>
   </div>
-
-  <div class="card">
-    <h3>Диагностика</h3>
-    <div class="small">BACKEND_PUBLIC: <b id="conf"></b></div>
-    <pre id="checkOut" class="small" style="white-space:pre-wrap;background:#f7f7fb;padding:10px;border-radius:12px;border:1px solid #e5e7eb;margin-top:8px"></pre>
-  </div>
 </div>
 
 <div id="toast" class="toast"></div>
-
 <script>
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
 const api=()=>window.BACKEND_PUBLIC; const rid=()=>document.getElementById('rid').value.trim(); const key=()=>document.getElementById('apikey').value.trim();
 
 function saveProfile(){localStorage.setItem('foody_restaurant', JSON.stringify({id: rid()})); localStorage.setItem('api_key', key()); toast('Сохранено');}
-function loadProfile(){const r=JSON.parse(localStorage.getItem('foody_restaurant')||'{}'); if(r.id) document.getElementById('rid').value=r.id; const k=localStorage.getItem('api_key'); if(k) document.getElementById('apikey').value=k; document.getElementById('conf').textContent=api();}
+function loadProfile(){const r=JSON.parse(localStorage.getItem('foody_restaurant')||'{}'); if(r.id) document.getElementById('rid').value=r.id; const k=localStorage.getItem('api_key'); if(k) document.getElementById('apikey').value=k;}
+
+function localToUtcIsoZ(localStr){
+  const d=new Date(localStr);
+  const iso=d.toISOString().replace(/\.\d{3}Z$/,'Z');
+  return iso;
+}
+function setDefaultExpires(){
+  const d=new Date(Date.now()+2*3600*1000);
+  const pad=n=>String(n).padStart(2,'0');
+  const local=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  document.getElementById('expires').value=local;
+  document.getElementById('tzHint').textContent='Ваш часовой пояс: '+Intl.DateTimeFormat().resolvedOptions().timeZone+' — время конвертируется в UTC автоматически';
+}
 
 async function registerRestaurant(){
   const title=prompt('Название ресторана?'); if(!title) return;
-  const lat=prompt('Широта (опционально)'); const lng=prompt('Долгота (опционально)');
+  const lat=prompt('Широта (опционально)');
+  const lng=prompt('Долгота (опционально)');
   const body={title:title.trim()}; if(lat) body.lat=parseFloat(lat); if(lng) body.lng=parseFloat(lng);
   const r=await fetch(`${api()}/api/v1/auth/register_restaurant`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   const data=await r.json();
   if(!r.ok){toast('Ошибка регистрации'); console.log(data); return;}
-  document.getElementById('rid').value=data.restaurant_id; document.getElementById('apikey').value=data.api_key; saveProfile();
+  document.getElementById('rid').value=data.restaurant_id; document.getElementById('apikey').value=data.api_key; saveProfile(); toast('Ресторан создан');
+  await loadOffers();
 }
 
 async function createOffer(){
-  const ridVal = rid(); const keyVal = key();
+  const ridVal = rid();
+  const keyVal = key();
   if(!ridVal || !keyVal){ toast('Сначала сохраните RID и API Key'); return; }
-  let exp = document.getElementById('expires').value.trim();
-  if(!exp){ toast('Укажи срок в формате YYYY-MM-DDTHH:MM:SSZ (UTC)'); return; }
-  if(exp.includes(' ')) exp = exp.replace(' ', 'T');
-  if(!/[zZ]$/.test(exp)) exp = exp + 'Z';
+
+  const local = document.getElementById('expires').value.trim();
+  if(!local){ toast('Укажи срок (дата+время)'); return; }
+  const exp = localToUtcIsoZ(local);
+
   const body={restaurant_id:ridVal, title:document.getElementById('title').value.trim(), price_cents:parseInt(document.getElementById('price').value.trim()||'0'), qty_total:parseInt(document.getElementById('qty_total').value.trim()||'1'), expires_at:exp};
   const ql=document.getElementById('qty_left').value.trim(); if(ql) body.qty_left=parseInt(ql);
   const r=await fetch(`${api()}/api/v1/merchant/offers`, {method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key': keyVal}, body:JSON.stringify(body)});
-  if(!r.ok){const txt=await r.text(); console.error('Create offer error:', txt); toast('Ошибка создания: '+(txt.slice(0,120)||r.status)); return;}
-  toast('Создано'); loadOffers();
+  if(!r.ok){ const txt=await r.text(); toast('Ошибка создания: '+txt.slice(0,160)); return; } toast('Создано'); loadOffers();
 }
 
 async function loadOffers(){
@@ -94,7 +104,8 @@ async function loadOffers(){
 
 async function delOffer(id){
   const r=await fetch(`${api()}/api/v1/merchant/offers/${encodeURIComponent(id)}`, {method:'DELETE', headers:{'X-Foody-Key': key()}});
-  if(!r.ok){toast('Ошибка удаления'); return;} toast('Удалено'); loadOffers();
+  const txt=await r.text();
+  if(!r.ok){toast('Ошибка удаления: '+txt.slice(0,120)); return;} toast('Удалено'); loadOffers();
 }
 
 async function exportCsv(){
@@ -103,17 +114,24 @@ async function exportCsv(){
     const r=await fetch(url, {headers:{'X-Foody-Key': key()}});
     if(!r.ok){ toast('Ошибка экспорта'); return; }
     const blob=await r.blob();
+    // 1) нативное скачивание
     const href=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=href; a.download=`foody_report_${rid()}.csv`;
+    const a=document.createElement('a');
+    a.href=href; a.download=`foody_report_${rid()}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(href), 1000);
+    // 2) дубль — data URL + openLink
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const dataUrl=reader.result;
+      if(window.Telegram?.WebApp?.openLink){ try{ window.Telegram.WebApp.openLink(dataUrl); }catch(_){} }
+    };
+    reader.readAsDataURL(blob);
     toast('CSV выгружен');
   }catch(e){
-    try{
-      const r=await fetch(url,{headers:{'X-Foody-Key': key()}});
-      const t=await r.text();
-      const w=window.open('','_blank'); if(w){ w.document.write('<pre>'+t.replace(/</g,'&lt;')+'</pre>'); }
-    }catch(_){ toast('Не удалось открыть CSV'); }
+    try{ const t=await (await fetch(url,{headers:{'X-Foody-Key': key()}})).text();
+      const w=window.open('','_blank'); if(w){ w.document.body.innerHTML='<pre>'+t.replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]))+'</pre>'; }
+    }catch(_){ toast('Не удалось выгрузить CSV'); }
   }
 }
 
@@ -121,10 +139,12 @@ document.getElementById('btnSave').onclick=()=>{saveProfile(); loadOffers();};
 document.getElementById('btnRegister').onclick=registerRestaurant;
 document.getElementById('btnCreate').onclick=createOffer;
 document.getElementById('btnLoad').onclick=loadOffers;
-document.getElementById('btnExport').onclick=exportCsv;
 
-// автозагрузка по открытию и автосохранение изменений
-window.addEventListener('load', async ()=>{ loadProfile(); if(rid() && key()){ await loadOffers(); } });
+window.addEventListener('load', async ()=>{
+  loadProfile();
+  setDefaultExpires();
+  if(rid() && key()){ await loadOffers(); }
+});
 document.getElementById('rid').addEventListener('change', saveProfile);
 document.getElementById('apikey').addEventListener('change', saveProfile);
 </script>

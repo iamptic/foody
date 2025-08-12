@@ -25,11 +25,12 @@
       <button class="btn" id="btnCheck">Проверить</button>
       <button class="btn" id="btnRedeem">Погасить</button>
     </div>
-    <pre id="out" class="small" style="white-space:pre-wrap;background:#f7f7fb;padding:10px;border-radius:12px;border:1px solid #e5e7eb;margin-top:8px"></pre>
+    <div id="outBox" class="card" style="background:#f8fafc">
+      <div id="out" class="small muted">Здесь будет результат</div>
+    </div>
   </div>
 </div>
 <div id="toast" class="toast"></div>
-
 <script>
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
@@ -50,9 +51,9 @@ function showResult(prefix, ok, payload){
   const el=document.getElementById('out');
   if(ok){
     el.innerHTML = `<div class="badge">OK</div> ${prefix}
-      <div class="small">Резервация: <b>${(payload.reservation_id||payload.reservationId||'')}</b></div>
-      <div class="small">Код: <b>${payload.code||''}</b></div>
-      <div class="small">Статус: <b>${payload.status||''}</b></div>`;
+      <div class="small">Reservation: <b>${payload.reservation_id||payload.reservationId||''}</b></div>
+      <div class="small">Code: <b>${payload.code||''}</b></div>
+      <div class="small">Status: <b>${payload.status||''}</b></div>`;
   }else{
     el.textContent = `${prefix} ERROR\n${payload}`;
   }
