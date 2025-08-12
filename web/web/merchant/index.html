@@ -1,13 +1,105 @@
 <!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Foody — Партнёрам</title><link rel="stylesheet" href="/web/style.css"/>
-<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/config.js"></script></head><body>
+<script src="https://telegram.org/js/telegram-web-app.js">
+async function registerRestaurant(){
+  const name = (document.getElementById('name')?.value||'').trim();
+  const phone = (document.getElementById('phone')?.value||'').trim();
+  if(!name){ toast('Введите название заведения'); return; }
+  const url1 = api()+"/api/v1/merchant/register_public";
+  const url2 = api()+"/api/v1/merchant/register";
+  const body = { title: name, phone: phone||undefined };
+  try{
+    let r = await fetch(url1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===404 || r.status===405){ r = await fetch(url2,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    const t = await r.text();
+    if(!r.ok){ toast('Ошибка регистрации: '+t.slice(0,140)); return; }
+    const data = JSON.parse(t);
+    if(!data.restaurant_id || !data.api_key){ toast('Неожиданный ответ: '+t.slice(0,140)); return; }
+    document.getElementById('rid').value = data.restaurant_id;
+    document.getElementById('apikey').value = data.api_key;
+    saveProfile();
+    toast('Готово! RID и ключ сохранены');
+  }catch(e){
+    toast('Сеть/ошибка регистрации'); console.error(e);
+  }
+}
+document.getElementById('copyRid').onclick=()=>{ const v=document.getElementById('rid').value; navigator.clipboard.writeText(v||''); toast('RID скопирован'); };
+document.getElementById('copyKey').onclick=()=>{ const v=document.getElementById('apikey').value; navigator.clipboard.writeText(v||''); toast('API ключ скопирован'); };
+
+function hideEditColumnIfEmpty(arr){
+  const th = document.querySelector('.thEdit');
+  if(!th) return;
+  if(!Array.isArray(arr) || arr.length===0){ th.style.display='none'; } else { th.style.display=''; }
+}
+
+function _num(v){ return parseFloat((v||'').toString().replace(',','.'))||0; }
+function _setPriceRub(r){ const el=document.getElementById('price'); el.value = (Math.round((r||0)*100)/100).toFixed(2).replace('.',','); }
+function _setExpirePlusHours(h){
+  const input=document.getElementById('expires');
+  const base = input.value ? new Date(input.value) : new Date();
+  base.setHours(base.getHours() + h);
+  const pad=n=>String(n).padStart(2,'0');
+  input.value = base.getFullYear()+'-'+pad(base.getMonth()+1)+'-'+pad(base.getDate())+'T'+pad(base.getHours())+':'+pad(base.getMinutes());
+}
+document.getElementById('btnPreset30').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.7); };
+document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.5); };
+document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
+document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
+document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
+</script><script src="/config.js">
+async function registerRestaurant(){
+  const name = (document.getElementById('name')?.value||'').trim();
+  const phone = (document.getElementById('phone')?.value||'').trim();
+  if(!name){ toast('Введите название заведения'); return; }
+  const url1 = api()+"/api/v1/merchant/register_public";
+  const url2 = api()+"/api/v1/merchant/register";
+  const body = { title: name, phone: phone||undefined };
+  try{
+    let r = await fetch(url1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===404 || r.status===405){ r = await fetch(url2,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    const t = await r.text();
+    if(!r.ok){ toast('Ошибка регистрации: '+t.slice(0,140)); return; }
+    const data = JSON.parse(t);
+    if(!data.restaurant_id || !data.api_key){ toast('Неожиданный ответ: '+t.slice(0,140)); return; }
+    document.getElementById('rid').value = data.restaurant_id;
+    document.getElementById('apikey').value = data.api_key;
+    saveProfile();
+    toast('Готово! RID и ключ сохранены');
+  }catch(e){
+    toast('Сеть/ошибка регистрации'); console.error(e);
+  }
+}
+document.getElementById('copyRid').onclick=()=>{ const v=document.getElementById('rid').value; navigator.clipboard.writeText(v||''); toast('RID скопирован'); };
+document.getElementById('copyKey').onclick=()=>{ const v=document.getElementById('apikey').value; navigator.clipboard.writeText(v||''); toast('API ключ скопирован'); };
+
+function hideEditColumnIfEmpty(arr){
+  const th = document.querySelector('.thEdit');
+  if(!th) return;
+  if(!Array.isArray(arr) || arr.length===0){ th.style.display='none'; } else { th.style.display=''; }
+}
+
+function _num(v){ return parseFloat((v||'').toString().replace(',','.'))||0; }
+function _setPriceRub(r){ const el=document.getElementById('price'); el.value = (Math.round((r||0)*100)/100).toFixed(2).replace('.',','); }
+function _setExpirePlusHours(h){
+  const input=document.getElementById('expires');
+  const base = input.value ? new Date(input.value) : new Date();
+  base.setHours(base.getHours() + h);
+  const pad=n=>String(n).padStart(2,'0');
+  input.value = base.getFullYear()+'-'+pad(base.getMonth()+1)+'-'+pad(base.getDate())+'T'+pad(base.getHours())+':'+pad(base.getMinutes());
+}
+document.getElementById('btnPreset30').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.7); };
+document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.5); };
+document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
+document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
+document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
+</script></head><body>
 <div class="container">
   <h2>👨‍🍳 Партнёрский кабинет</h2>
 
   <details class="card"><summary><b>Настройки</b> (RID/API Key)</summary>
     <div class="row" style="margin-top:8px">
-      <div class="col"><label class="small">Restaurant ID</label><input id="rid" class="input" placeholder="RID_..."/></div>
-      <div class="col"><label class="small">API Key</label><input id="apikey" class="input" placeholder="ваш ключ"/></div>
+      <div class="col"><label class="small">Restaurant ID</label><input id="rid" class="input" style="width:calc(100% - 86px);display:inline-block" placeholder="RID_..."/></div>
+      <div class="col"><label class="small">API Key</label><input id="apikey" class="input" style="width:calc(100% - 86px);display:inline-block" placeholder="ваш ключ"/></div>
     </div>
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="btnSave">Сохранить</button>
@@ -18,97 +110,8 @@
 
   <div class="card">
     <h3>Новое/редактирование предложения</h3>
-    <div class="row">
-      <div class="col"><input id="title" class="input" placeholder="Название"/></div>
-      <div class="col"><input id="price_rub" class="input" placeholder="Цена (₽, напр. 199.00)" inputmode="decimal"/></div>
-    </div>
-    <div class="row">
-      <div class="col"><input id="qty_total" class="input" placeholder="Всего ед." inputmode="numeric"/></div>
-      <div class="col"><input id="qty_left" class="input" placeholder="Осталось (опц.)" inputmode="numeric"/></div>
-      <div class="col"><input id="expires" type="datetime-local" class="input" placeholder="Срок (локальное время)"/></div>
-    </div>
-    <div class="muted small" id="tzHint"></div>
-    <div style="margin-top:8px;display:flex;gap:8px">
-      <button class="btn" id="btnCreate">Сохранить</button>
-      <button class="btn secondary" id="btnReset">Очистить форму</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="row" style="align-items:center">
-      <div class="col"><h3>Мои предложения</h3></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn secondary" id="btnLoad">Обновить</button>
-        <button class="btn secondary" id="btnExport">Экспорт CSV</button>
-      </div>
-    </div>
-    <div id="table"></div>
-  <div id="editModal" class="modal hidden"><div class="modal-content">
-<h3>Редактировать оффер</h3>
-<div class="row"><div class="col"><label class="small">Название</label><input id="e_title" class="input"></div>
-<div class="col"><label class="small">Цена ₽</label><input id="e_price" class="input"></div></div>
-<div class="row"><div class="col"><label class="small">Всего</label><input id="e_qty_total" class="input"></div>
-<div class="col"><label class="small">Осталось</label><input id="e_qty_left" class="input"></div></div>
-<div class="row"><div class="col"><label class="small">Срок (лок.)</label><input id="e_expires" type="datetime-local" class="input"></div></div>
-<div style="margin-top:8px;display:flex;gap:8px"><button class="btn" id="e_save">Сохранить</button><button class="btn secondary" id="e_cancel">Отмена</button></div>
-</div></div>
-</div>
-</div>
-
-<div id="csvModal" class="modal hidden"><div class="modal-content">
-<h3>CSV отчёт</h3>
-<textarea id="csvText" class="input" style="min-height:200px"></textarea>
-<div style="margin-top:8px;display:flex;gap:8px"><button class="btn" id="csvCopy">Копировать</button><button class="btn secondary" id="csvClose">Закрыть</button></div>
-</div></div>
-<div id="toast" class="toast"></div>
-<script>
-const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
-const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
-const api=()=>window.BACKEND_PUBLIC; const rid=()=>document.getElementById('rid').value.trim(); const key=()=>document.getElementById('apikey').value.trim();
-let editingId=null;
-
-function saveProfile(){localStorage.setItem('foody_restaurant', JSON.stringify({id: rid()})); localStorage.setItem('api_key', key()); toast('Сохранено');}
-function loadProfile(){const r=JSON.parse(localStorage.getItem('foody_restaurant')||'{}'); if(r.id) document.getElementById('rid').value=r.id; const k=localStorage.getItem('api_key'); if(k) document.getElementById('apikey').value=k;}
-function localToUtcIsoZ(localStr){const d=new Date(localStr); return d.toISOString().replace(/\.\d{3}Z$/,'Z');}
-function setDefaultExpires(){const d=new Date(Date.now()+2*3600*1000);const pad=n=>String(n).padStart(2,'0');const local=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;document.getElementById('expires').value=local;document.getElementById('tzHint').textContent='Ваш часовой пояс: '+Intl.DateTimeFormat().resolvedOptions().timeZone+' — время конвертируется в UTC автоматически';}
-function parseRub(v){return Math.round(parseFloat((v||'0').replace(',','.'))*100)||0;}
-function fmtRub(v){return (v/100).toFixed(2).replace('.',',')+' ₽';}
-
-async function registerRestaurant(){
-  const title=prompt('Название ресторана?'); if(!title) return;
-  const lat=prompt('Широта (опционально)'); const lng=prompt('Долгота (опционально)');
-  const body={title:title.trim()}; if(lat) body.lat=parseFloat(lat); if(lng) body.lng=parseFloat(lng);
-  const r=await fetch(`${api()}/api/v1/auth/register_restaurant`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-  const data=await r.json();
-  if(!r.ok){toast('Ошибка регистрации'); console.log(data); return;}
-  document.getElementById('rid').value=data.restaurant_id; document.getElementById('apikey').value=data.api_key; saveProfile(); toast('Ресторан создан'); await loadOffers();
-}
-
-function resetForm(){ editingId=null; document.getElementById('title').value=''; document.getElementById('price_rub').value=''; document.getElementById('qty_total').value=''; document.getElementById('qty_left').value=''; setDefaultExpires(); }
-
-async function submitForm(){
-  const ridVal=rid(), keyVal=key(); if(!ridVal||!keyVal){ toast('Сначала сохраните RID/API Key'); return; }
-  const local=document.getElementById('expires').value.trim(); if(!local){ toast('Укажи срок'); return; }
-  const body={ restaurant_id:ridVal, title:document.getElementById('title').value.trim(), price_cents:parseRub(document.getElementById('price_rub').value), qty_total:parseInt(document.getElementById('qty_total').value.trim()||'1'), expires_at:localToUtcIsoZ(local) };
-  const ql=document.getElementById('qty_left').value.trim(); if(ql) body.qty_left=parseInt(ql);
-  if(editingId){
-    // PATCH
-    const patch={}; Object.assign(patch, body); delete patch.restaurant_id;
-    const r=await fetch(`${api()}/api/v1/merchant/offers/${encodeURIComponent(editingId)}?restaurant_id=${encodeURIComponent(ridVal)}`,{method:'PATCH',headers:{'Content-Type':'application/json','X-Foody-Key': keyVal},body:JSON.stringify(patch)});
-    const txt=await r.text(); if(!r.ok){toast('Ошибка обновления: '+txt.slice(0,160)); return;} toast('Обновлено'); resetForm(); loadOffers();
-  }else{
-    // POST
-    const r=await fetch(`${api()}/api/v1/merchant/offers`, {method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key': keyVal}, body:JSON.stringify(body)});
-    const txt=await r.text(); if(!r.ok){ toast('Ошибка создания: '+txt.slice(0,160)); return; } toast('Создано'); resetForm(); loadOffers();
-  }
-}
-
-async function loadOffers(){
-  const r=await fetch(`${api()}/api/v1/merchant/offers?restaurant_id=${encodeURIComponent(rid())}`, {headers:{'X-Foody-Key': key()}});
-  const data=await r.json();
-  const el=document.getElementById('table');
-  if(!Array.isArray(data)||data.length===0){el.innerHTML='<div class="muted">Пока пусто</div>'; return;}
-  el.innerHTML='<table class="table"><thead><tr><th>Название</th><th>Цена</th><th>Ост.</th><th>Срок</th><th></th><th></th></tr></thead><tbody>'+
+    '; return;}
+  el.innerHTML='<table class="table"><thead><tr><th>Название</th><th>Цена</th><th>Ост.</th><th>Срок</th><th></th><th class=\"thEdit\"></th></tr></thead><tbody>'+
     data.map(x=>`<tr><td>${x.title}</td><td>${fmtRub(x.price_cents)}</td><td>${x.qty_left}/${x.qty_total}</td><td>${new Date(x.expires_at).toLocaleString()}</td><td><button class="btn" data-act="edit" data-id="${x.id}">Изм.</button> <button class="btn secondary" data-act="del" data-id="${x.id}">Удалить</button></td></tr>`).join('')+
   '</tbody></table>';
   el.querySelectorAll('button[data-act="del"]').forEach(btn=>btn.onclick=()=>delOffer(btn.getAttribute('data-id')));
@@ -204,5 +207,51 @@ document.getElementById('e_save').onclick=async()=>{
   if(ok){ toast('Сохранено'); document.getElementById('editModal').classList.add('hidden'); loadOffers(); } else { toast('Ошибка: '+txt.slice(0,160)); }
 };
 
+
+async function registerRestaurant(){
+  const name = (document.getElementById('name')?.value||'').trim();
+  const phone = (document.getElementById('phone')?.value||'').trim();
+  if(!name){ toast('Введите название заведения'); return; }
+  const url1 = api()+"/api/v1/merchant/register_public";
+  const url2 = api()+"/api/v1/merchant/register";
+  const body = { title: name, phone: phone||undefined };
+  try{
+    let r = await fetch(url1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===404 || r.status===405){ r = await fetch(url2,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    const t = await r.text();
+    if(!r.ok){ toast('Ошибка регистрации: '+t.slice(0,140)); return; }
+    const data = JSON.parse(t);
+    if(!data.restaurant_id || !data.api_key){ toast('Неожиданный ответ: '+t.slice(0,140)); return; }
+    document.getElementById('rid').value = data.restaurant_id;
+    document.getElementById('apikey').value = data.api_key;
+    saveProfile();
+    toast('Готово! RID и ключ сохранены');
+  }catch(e){
+    toast('Сеть/ошибка регистрации'); console.error(e);
+  }
+}
+document.getElementById('copyRid').onclick=()=>{ const v=document.getElementById('rid').value; navigator.clipboard.writeText(v||''); toast('RID скопирован'); };
+document.getElementById('copyKey').onclick=()=>{ const v=document.getElementById('apikey').value; navigator.clipboard.writeText(v||''); toast('API ключ скопирован'); };
+
+function hideEditColumnIfEmpty(arr){
+  const th = document.querySelector('.thEdit');
+  if(!th) return;
+  if(!Array.isArray(arr) || arr.length===0){ th.style.display='none'; } else { th.style.display=''; }
+}
+
+function _num(v){ return parseFloat((v||'').toString().replace(',','.'))||0; }
+function _setPriceRub(r){ const el=document.getElementById('price'); el.value = (Math.round((r||0)*100)/100).toFixed(2).replace('.',','); }
+function _setExpirePlusHours(h){
+  const input=document.getElementById('expires');
+  const base = input.value ? new Date(input.value) : new Date();
+  base.setHours(base.getHours() + h);
+  const pad=n=>String(n).padStart(2,'0');
+  input.value = base.getFullYear()+'-'+pad(base.getMonth()+1)+'-'+pad(base.getDate())+'T'+pad(base.getHours())+':'+pad(base.getMinutes());
+}
+document.getElementById('btnPreset30').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.7); };
+document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.5); };
+document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
+document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
+document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
 </script>
 </body></html>
