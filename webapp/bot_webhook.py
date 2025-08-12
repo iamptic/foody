@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, Update
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "changeme")
@@ -17,7 +18,8 @@ CORS = os.getenv("CORS_ORIGINS", "*")
 app = FastAPI(title="Foody Bot/WebApp")
 app.add_middleware(CORSMiddleware, allow_origins=CORS.split(",") if CORS else ["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-bot = Bot(BOT_TOKEN, parse_mode=ParseMode.HTML)
+# FIX: use DefaultBotProperties for parse_mode on aiogram>=3.7
+bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 r = Router()
 dp.include_router(r)
