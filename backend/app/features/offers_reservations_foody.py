@@ -162,6 +162,14 @@ async def reservation_qr_png(res_id: str, db: AsyncSession=Depends(get_db)):
         return Response(content=bio.getvalue(), media_type="image/png")
     except Exception:
         return Response(content=f"QR: {payload}".encode(), media_type="text/plain")
+async def _auth_restaurant_by_key(db: AsyncSession, x_key: Optional[str]) -> str:
+    if not x_key:
+        raise HTTPException(401, "Missing X-Foody-Key")
+    q = await db.execute(text("SELECT id FROM foody_restaurants WHERE api_key=:k").bindparams(k=x_key))
+    row = q.first()
+    if not row or not row[0]:
+        raise HTTPException(403, "Invalid API key")
+    return row[0]
 
 async def _auth_restaurant(db: AsyncSession, restaurant_id: str, api_key: Optional[str]):
     if not api_key: raise HTTPException(401, "Missing X-Foody-Key")
@@ -234,12 +242,15 @@ async def merchant_update_offer(offer_id: str, body: MerchantOfferPatch, x_foody
     return MerchantOfferOut(id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents, qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at, created_at=o.created_at)
 
 @router.delete("/merchant/offers/{offer_id}")
-async def merchant_delete_offer(offer_id: str, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
-    o=(await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))).scalar_one_or_none()
-    if not o: raise HTTPException(404, "offer not found")
-    await _auth_restaurant(db, o.restaurant_id, x_foody_key)
-    await db.execute(text("DELETE FROM foody_offers WHERE id=:id").bindparams(id=offer_id)); await db.commit()
-    return {"ok": True}
+async def merchant_delete_offer(offer_id: str, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession = Depends(get_db)):
+    rid = await _auth_restaurant_by_key(db, x_foody_key)
+    q = await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))
+    o = q.scalar_one_or_none()
+    if not o or o.restaurant_id != rid:
+        raise HTTPException(404, "Offer not found")
+    await db.execute(text("DELETE FROM foody_offers WHERE id=:id").bindparams(id=offer_id))
+    await db.commit()
+    return {"ok": True, "deleted_id": offer_id}
 
 class CheckOut(BaseModel):
     reservation_id: str; code: str; status: str; offer_id: str; expires_at: dt.datetime
