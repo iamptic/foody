@@ -1,0 +1,25 @@
+# общее
+.git
+*.zip
+*.tar
+*.tar.gz
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+.vscode
+.idea
+
+# python
+.venv
+venv
+dist
+build
+
+# node
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
