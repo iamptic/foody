@@ -1,1 +1,0 @@
-(function(){const tg=window.Telegram&&window.Telegram.WebApp;if(!tg)return;try{tg.ready();tg.expand();}catch(e){}try{localStorage.setItem('tg_initData',tg.initData||'');localStorage.setItem('tg_initDataUnsafe',JSON.stringify(tg.initDataUnsafe||{}));}catch(e){}})();
