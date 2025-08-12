@@ -1,15 +1,16 @@
-import os, secrets
-from fastapi import FastAPI, HTTPException, Query
+# main.py — Foody Backend v3 + admin /set_api_key
+import os
+from fastapi import FastAPI
+
 from fastapi.middleware.cors import CORSMiddleware
 from app.bootstrap_db import run as run_migrations
-from app.features.offers_reservations_foody import router as offers_router, merchant as merchant_router
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy import text
+from app.features.offers_reservations_foody import router as offers_router
 
-__version__ = "foody-backend-service-v3-2025-08-11T23:41:04.349025"
+__version__ = "foody-backend-service-v3"
 
 app = FastAPI(title="Foody Backend", version=__version__)
 
+# --- CORS ---
 cors_origins = os.getenv("CORS_ORIGINS", "*")
 origins = [o.strip() for o in cors_origins.split(",")] if cors_origins else ["*"]
 app.add_middleware(
@@ -18,16 +19,19 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
+# --- Startup: миграции ---
 @app.on_event("startup")
 async def _run_migs():
     if os.getenv("RUN_MIGRATIONS", "1") == "1":
         await run_migrations()
 
+# --- Основные роуты (offers / reservations / merchant) ---
 app.include_router(offers_router)
-app.include_router(merchant_router)
 
+# --- Health ---
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -36,28 +40,23 @@ def health():
 def root():
     return {"ok": True, "service": "backend", "version": __version__}
 
-ADMIN_MIGRATE_TOKEN = os.getenv("ADMIN_MIGRATE_TOKEN", "")
-
-@app.post("/admin/generate_api_key")
-async def gen_key(restaurant_id: str = Query(...), token: str = Query(...)):
-    if not ADMIN_MIGRATE_TOKEN or token != ADMIN_MIGRATE_TOKEN:
-        raise HTTPException(403, "forbidden")
-    db_url = os.environ.get("DATABASE_URL")
-    if db_url.startswith("postgresql://"):
-        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    engine = create_async_engine(db_url, echo=False, pool_pre_ping=True, future=True)
-    key = secrets.token_urlsafe(24).replace("-", "_")
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
-    async with async_session() as s:
-        await s.execute(text("UPDATE foody_restaurants SET api_key=:k WHERE id=:rid").bindparams(k=key, rid=restaurant_id))
-        await s.commit()
-    return {"restaurant_id": restaurant_id, "api_key": key}
-    # --- Admin: вручную выставить api_key ресторану ---
+# ---------------------------------------------------------------------
+# Admin helper: вручную выставить api_key ресторану (если нет SQL-консоли)
+# POST /api/v1/admin/set_api_key?token=<ADMIN_MIGRATE_TOKEN>
+# body: {"restaurant_id":"RID_DEMO","api_key":"<ваш ключ>"}
+# ---------------------------------------------------------------------
+from typing import Optional
+from fastapi import Query, Body, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
 
 ADMIN_TOKEN = os.getenv("ADMIN_MIGRATE_TOKEN", "changeme")
+
 _DB_URL = os.getenv("DATABASE_URL", "")
 if _DB_URL.startswith("postgresql://"):
     _DB_URL = _DB_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 _engine_admin = create_async_engine(_DB_URL, echo=False, pool_pre_ping=True)
 
 class _SetKeyIn(BaseModel):
@@ -74,4 +73,3 @@ async def set_api_key(token: str = Query(...), body: _SetKeyIn = Body(...)):
             {"k": body.api_key, "rid": body.restaurant_id},
         )
     return {"ok": True, "restaurant_id": body.restaurant_id, "api_key": body.api_key}
-
