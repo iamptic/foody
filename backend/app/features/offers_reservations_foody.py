@@ -34,7 +34,7 @@ async def _auth_key_to_restaurant(db: AsyncSession, api_key: Optional[str]) -> O
     row = (await db.execute(text("SELECT id FROM foody_restaurants WHERE api_key=:k").bindparams(k=api_key))).fetchone()
     return row[0] if row else None
 
-async def _auth_restaurant(db: AsyncSession, restaurant_id: str, api_key: Optional[str]):
+async def _auth_restaurant(db: AsyncSession, restaurant_id: str, status: str = Query('active', enum=['active','archived','all']), api_key: Optional[str]):
     rid_by_key = await _auth_key_to_restaurant(db, api_key)
     if rid_by_key is None or rid_by_key != restaurant_id:
         raise HTTPException(403, "Forbidden")
@@ -375,3 +375,100 @@ async def merchant_redeem(body: RedeemIn, x_foody_key: Optional[str] = Header(No
     await db.execute(text("UPDATE foody_reservations SET status='redeemed', redeemed_at=NOW() WHERE id=:i").bindparams(i=row[0]))
     await db.commit()
     return RedeemOut(ok=True, reservation_id=row[0], code=row[1], status="redeemed")
+
+
+
+# ======== STAFF PIN MANAGEMENT (merchant) ========
+class StaffPinIn(BaseModel):
+    restaurant_id: str
+    regen: bool = True
+
+class StaffPinOut(BaseModel):
+    ok: bool
+    restaurant_id: str
+    staff_pin: str
+
+@router.post("/merchant/staff_pin", response_model=StaffPinOut)
+async def merchant_staff_pin(
+    body: StaffPinIn,
+    x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"),
+    key: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    rid = await _auth_key_to_restaurant(db, x_foody_key or key)
+    if rid is None or rid != body.restaurant_id:
+        raise HTTPException(403, "Forbidden")
+    # generate 6-digit pin
+    import random
+    pin = "".join(str(random.randint(0,9)) for _ in range(6))
+    await db.execute(text("UPDATE foody_restaurants SET staff_pin=:pin WHERE id=:rid").bindparams(pin=pin, rid=rid))
+    await db.commit()
+    return StaffPinOut(ok=True, restaurant_id=rid, staff_pin=pin)
+
+# ======== STAFF KIOSK ========
+class StaffAuthOut(BaseModel):
+    ok: bool
+    restaurant_id: str
+
+@router.get("/staff/auth", response_model=StaffAuthOut)
+async def staff_auth(
+    restaurant_id: str = Query(...),
+    x_foody_staff: Optional[str] = Header(None, alias="X-Foody-Staff"),
+    pin: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    staff_pin = x_foody_staff or pin
+    if not staff_pin:
+        raise HTTPException(401, "Missing staff pin")
+    row = (await db.execute(text("SELECT 1 FROM foody_restaurants WHERE id=:rid AND staff_pin=:pin").bindparams(rid=restaurant_id, pin=staff_pin))).fetchone()
+    if not row:
+        raise HTTPException(403, "Bad staff pin")
+    return StaffAuthOut(ok=True, restaurant_id=restaurant_id)
+
+class StaffRedeemIn(BaseModel):
+    restaurant_id: str
+    code: str
+
+class StaffRedeemOut(BaseModel):
+    ok: bool
+    reservation_id: str
+    code: str
+    status: str
+
+@router.post("/staff/redeem", response_model=StaffRedeemOut)
+async def staff_redeem(
+    body: StaffRedeemIn,
+    x_foody_staff: Optional[str] = Header(None, alias="X-Foody-Staff"),
+    pin: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    staff_pin = x_foody_staff or pin
+    if not staff_pin:
+        raise HTTPException(401, "Missing staff pin")
+    # auth staff for restaurant
+    row = (await db.execute(text("SELECT 1 FROM foody_restaurants WHERE id=:rid AND staff_pin=:pin").bindparams(rid=body.restaurant_id, pin=staff_pin))).fetchone()
+    if not row:
+        raise HTTPException(403, "Bad staff pin")
+    # find reservation
+    rrow = (await db.execute(text("SELECT id, status FROM foody_reservations WHERE code=:code AND EXISTS (SELECT 1 FROM foody_offers o WHERE o.id=foody_reservations.offer_id AND o.restaurant_id=:rid)").bindparams(code=body.code, rid=body.restaurant_id))).fetchone()
+    if not rrow:
+        raise HTTPException(404, "Reservation not found")
+    rid_res, status = rrow[0], rrow[1]
+    if status == "redeemed":
+        return StaffRedeemOut(ok=True, reservation_id=rid_res, code=body.code, status="already_redeemed")
+    # mark redeemed
+    await db.execute(text("UPDATE foody_reservations SET status='redeemed', redeemed_at=NOW() WHERE id=:id").bindparams(id=rid_res))
+    await db.commit()
+    return StaffRedeemOut(ok=True, reservation_id=rid_res, code=body.code, status="redeemed")
+
+@router.post("/api/v1/merchant/offers/{offer_id}/restore")
+async def restore_offer(offer_id: str, request: Request, restaurant_id: str = Query(...)):
+    key = request.headers.get("X-Foody-Key")
+    await _auth_key(restaurant_id, key)
+    async with async_session() as s:
+        o = await s.get(FoodyOffer, offer_id)
+        if not o or o.restaurant_id != restaurant_id:
+            raise HTTPException(404, "Offer not found")
+        o.archived_at = None
+        await s.commit()
+        return {"ok": True, "restored_id": offer_id}

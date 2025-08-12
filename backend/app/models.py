@@ -16,6 +16,7 @@ class FoodyRestaurant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     lat: Mapped[Optional[float]] = mapped_column(nullable=True)
     lng: Mapped[Optional[float]] = mapped_column(nullable=True)
+    staff_pin: Mapped[Optional[str]] = mapped_column(nullable=True)  # 6-значный пин для персонала
 
     offers: Mapped[List["FoodyOffer"]] = relationship(
         back_populates="restaurant",
@@ -28,6 +29,7 @@ class FoodyOffer(Base):
     restaurant_id: Mapped[str] = mapped_column(ForeignKey("foody_restaurants.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(256))
     price_cents: Mapped[int] = mapped_column(Integer)
+    original_price_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     qty_total: Mapped[int] = mapped_column(Integer)
     qty_left: Mapped[int] = mapped_column(Integer)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
