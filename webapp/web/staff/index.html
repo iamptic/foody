@@ -29,6 +29,7 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
+
 <script>
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
@@ -45,15 +46,29 @@ document.getElementById('btnStartScan').onclick=()=>{
     const p=parseQR(decodedText); if(p){document.getElementById('resId').value=p.resId; document.getElementById('code').value=p.code; toast('Считано');}
   }).catch(e=>{document.getElementById('out').textContent='Ошибка камеры: '+e;});
 };
+function showResult(prefix, ok, payload){
+  const el=document.getElementById('out');
+  if(ok){
+    el.innerHTML = `<div class="badge">OK</div> ${prefix}
+      <div class="small">Резервация: <b>${(payload.reservation_id||payload.reservationId||'')}</b></div>
+      <div class="small">Код: <b>${payload.code||''}</b></div>
+      <div class="small">Статус: <b>${payload.status||''}</b></div>`;
+  }else{
+    el.textContent = `${prefix} ERROR\n${payload}`;
+  }
+}
 async function check(){
   const url=`${api()}/api/v1/merchant/check_code?restaurant_id=${encodeURIComponent(rid())}&code=${encodeURIComponent(document.getElementById('code').value.trim())}&res_id=${encodeURIComponent(document.getElementById('resId').value.trim())}`;
   const r=await fetch(url, {headers:{'X-Foody-Key': key()}});
-  document.getElementById('out').textContent=`CHECK → ${r.status}\n`+await r.text();
+  const txt=await r.text();
+  try{ showResult('CHECK →', r.ok, JSON.parse(txt)); } catch{ showResult('CHECK →', r.ok, txt); }
 }
 async function redeem(){
   const body={restaurant_id: rid(), code: document.getElementById('code').value.trim()||undefined, res_id: document.getElementById('resId').value.trim()||undefined};
   const r=await fetch(`${api()}/api/v1/merchant/redeem`, {method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key': key()}, body:JSON.stringify(body)});
-  document.getElementById('out').textContent=`REDEEM → ${r.status}\n`+await r.text();
+  const txt=await r.text();
+  try{ showResult('REDEEM →', r.ok, JSON.parse(txt)); } catch{ showResult('REDEEM →', r.ok, txt); }
+  if(r.ok){ document.getElementById('code').value=''; document.getElementById('resId').value=''; }
 }
 document.getElementById('btnSave').onclick=save;
 document.getElementById('btnCheck').onclick=check;

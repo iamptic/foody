@@ -24,19 +24,35 @@
 const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 function priceFmt(c){return (c/100).toFixed(2).replace('.',',')+' ₽'}
+
 async function loadOffers(){
   const base=window.BACKEND_PUBLIC;
   const rid=document.getElementById('rid').value.trim();
   const lat=document.getElementById('lat').value.trim();
   const lng=document.getElementById('lng').value.trim();
   const radius=document.getElementById('radius').value.trim();
-  const params=new URLSearchParams({});
-  if(rid) params.set('restaurant_id', rid);
-  if(lat && lng){ params.set('lat', lat); params.set('lng', lng); if(radius) params.set('radius_km', radius); }
-  const res=await fetch(`${base}/api/v1/offers?${params.toString()}`);
-  const data=await res.json();
+
+  async function fetchOffers(useGeo){
+    const p=new URLSearchParams({});
+    if(rid) p.set('restaurant_id', rid);
+    if(useGeo && lat && lng){
+      p.set('lat', lat); p.set('lng', lng);
+      if(radius) p.set('radius_km', radius);
+    }
+    const r=await fetch(`${base}/api/v1/offers?${p.toString()}`);
+    try { return await r.json(); } catch { return []; }
+  }
+
+  let data=await fetchOffers(true);
+  if(Array.isArray(data) && data.length===0 && lat && lng){
+    // fallback без гео
+    data=await fetchOffers(false);
+  }
+
   const list=document.getElementById('list'); list.innerHTML='';
-  if(!Array.isArray(data)||data.length===0){list.innerHTML='<div class="card muted">Пока пусто</div>';return;}
+  if(!Array.isArray(data)||data.length===0){
+    list.innerHTML='<div class="card muted">Пока пусто (попробуйте без гео/радиуса)</div>'; return;
+  }
   data.forEach(o=>{
     const left=o.qty_left; const exp=new Date(o.expires_at);
     const mins=Math.max(0, Math.floor((exp-new Date())/60000));
@@ -55,15 +71,17 @@ async function loadOffers(){
     list.appendChild(div);
   });
 }
+
 async function reserve(offerId){
   const base=window.BACKEND_PUBLIC;
   const tgid=window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'demo';
   const r=await fetch(`${base}/api/v1/reservations`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({offer_id:offerId, buyer_tg_id:String(tgid)})});
   if(!r.ok){toast('Ошибка брони');return;}
   const data=await r.json();
-  const url=`/web/buyer/receipt.html?id=${encodeURIComponent(data.id)}`;
-  if(window.Telegram?.WebApp) Telegram.WebApp.openLink(url); else location.href=url;
+  // остаёмся внутри mini app
+  location.assign(`/web/buyer/receipt.html?id=${encodeURIComponent(data.id)}`);
 }
+
 document.getElementById('btnLoad').onclick=loadOffers;
 document.getElementById('btnGeo').onclick=()=>{
   navigator.geolocation.getCurrentPosition(pos=>{

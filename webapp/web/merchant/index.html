@@ -48,6 +48,7 @@
 </div>
 
 <div id="toast" class="toast"></div>
+
 <script>
 const tg=window.Telegram?.WebApp;if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
 const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
@@ -58,19 +59,28 @@ function loadProfile(){const r=JSON.parse(localStorage.getItem('foody_restaurant
 
 async function registerRestaurant(){
   const title=prompt('Название ресторана?'); if(!title) return;
-  const lat=prompt('Широта (опционально)');
-  const lng=prompt('Долгота (опционально)');
+  const lat=prompt('Широта (опционально)'); const lng=prompt('Долгота (опционально)');
   const body={title:title.trim()}; if(lat) body.lat=parseFloat(lat); if(lng) body.lng=parseFloat(lng);
   const r=await fetch(`${api()}/api/v1/auth/register_restaurant`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   const data=await r.json();
   if(!r.ok){toast('Ошибка регистрации'); console.log(data); return;}
   document.getElementById('rid').value=data.restaurant_id; document.getElementById('apikey').value=data.api_key; saveProfile();
 }
+
 async function createOffer(){
-  const body={restaurant_id:rid(), title:document.getElementById('title').value.trim(), price_cents:parseInt(document.getElementById('price').value.trim()||'0'), qty_total:parseInt(document.getElementById('qty_total').value.trim()||'1'), qty_left:parseInt(document.getElementById('qty_left').value.trim()||'0')||undefined, expires_at:document.getElementById('expires').value.trim()};
-  const r=await fetch(`${api()}/api/v1/merchant/offers`, {method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key': key()}, body:JSON.stringify(body)});
-  if(!r.ok){toast('Ошибка создания'); return;} toast('Создано'); loadOffers();
+  const ridVal = rid(); const keyVal = key();
+  if(!ridVal || !keyVal){ toast('Сначала сохраните RID и API Key'); return; }
+  let exp = document.getElementById('expires').value.trim();
+  if(!exp){ toast('Укажи срок в формате YYYY-MM-DDTHH:MM:SSZ (UTC)'); return; }
+  if(exp.includes(' ')) exp = exp.replace(' ', 'T');
+  if(!/[zZ]$/.test(exp)) exp = exp + 'Z';
+  const body={restaurant_id:ridVal, title:document.getElementById('title').value.trim(), price_cents:parseInt(document.getElementById('price').value.trim()||'0'), qty_total:parseInt(document.getElementById('qty_total').value.trim()||'1'), expires_at:exp};
+  const ql=document.getElementById('qty_left').value.trim(); if(ql) body.qty_left=parseInt(ql);
+  const r=await fetch(`${api()}/api/v1/merchant/offers`, {method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key': keyVal}, body:JSON.stringify(body)});
+  if(!r.ok){const txt=await r.text(); console.error('Create offer error:', txt); toast('Ошибка создания: '+(txt.slice(0,120)||r.status)); return;}
+  toast('Создано'); loadOffers();
 }
+
 async function loadOffers(){
   const r=await fetch(`${api()}/api/v1/merchant/offers?restaurant_id=${encodeURIComponent(rid())}`, {headers:{'X-Foody-Key': key()}});
   const data=await r.json();
@@ -81,21 +91,41 @@ async function loadOffers(){
   '</tbody></table>';
   el.querySelectorAll('button[data-id]').forEach(btn=>btn.onclick=()=>delOffer(btn.getAttribute('data-id')));
 }
+
 async function delOffer(id){
   const r=await fetch(`${api()}/api/v1/merchant/offers/${encodeURIComponent(id)}`, {method:'DELETE', headers:{'X-Foody-Key': key()}});
   if(!r.ok){toast('Ошибка удаления'); return;} toast('Удалено'); loadOffers();
 }
+
 async function exportCsv(){
   const url=`${api()}/api/v1/merchant/report.csv?restaurant_id=${encodeURIComponent(rid())}`;
-  const r=await fetch(url, {headers:{'X-Foody-Key': key()}});
-  if(!r.ok){toast('Ошибка экспорта'); return;}
-  const blob=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`foody_report_${rid()}.csv`; a.click();
+  try{
+    const r=await fetch(url, {headers:{'X-Foody-Key': key()}});
+    if(!r.ok){ toast('Ошибка экспорта'); return; }
+    const blob=await r.blob();
+    const href=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=href; a.download=`foody_report_${rid()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(href), 1000);
+    toast('CSV выгружен');
+  }catch(e){
+    try{
+      const r=await fetch(url,{headers:{'X-Foody-Key': key()}});
+      const t=await r.text();
+      const w=window.open('','_blank'); if(w){ w.document.write('<pre>'+t.replace(/</g,'&lt;')+'</pre>'); }
+    }catch(_){ toast('Не удалось открыть CSV'); }
+  }
 }
+
 document.getElementById('btnSave').onclick=()=>{saveProfile(); loadOffers();};
 document.getElementById('btnRegister').onclick=registerRestaurant;
 document.getElementById('btnCreate').onclick=createOffer;
 document.getElementById('btnLoad').onclick=loadOffers;
 document.getElementById('btnExport').onclick=exportCsv;
-window.addEventListener('load', loadProfile);
+
+// автозагрузка по открытию и автосохранение изменений
+window.addEventListener('load', async ()=>{ loadProfile(); if(rid() && key()){ await loadOffers(); } });
+document.getElementById('rid').addEventListener('change', saveProfile);
+document.getElementById('apikey').addEventListener('change', saveProfile);
 </script>
 </body></html>
