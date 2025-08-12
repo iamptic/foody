@@ -185,12 +185,39 @@ async def merchant_offers(restaurant_id: str = Query(...), x_foody_key: Optional
 
 @router.post("/merchant/offers", response_model=MerchantOfferOut)
 async def merchant_create_offer(body: MerchantOfferIn, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
-    await _auth_restaurant(db, body.restaurant_id, x_foody_key)
-    oid=str(uuid.uuid4()); qty_left=body.qty_left if body.qty_left is not None else body.qty_total
-    await db.execute(text("INSERT INTO foody_offers (id, restaurant_id, title, price_cents, qty_total, qty_left, expires_at) VALUES (:id,:rid,:title,:price,:qty_total,:qty_left,:expires_at)").bindparams(id=oid, rid=body.restaurant_id, title=body.title, price=body.price_cents, qty_total=body.qty_total, qty_left=qty_left, expires_at=body.expires_at))
-    await db.commit()
-    o=(await db.execute(select(FoodyOffer).where(FoodyOffer.id==oid))).scalar_one()
-    return MerchantOfferOut(id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents, qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at, created_at=o.created_at)
+    try:
+        await _auth_restaurant(db, body.restaurant_id, x_foody_key)
+        # Validate
+        if not body.title or not body.title.strip():
+            raise HTTPException(422, "title is required")
+        if body.price_cents is None or body.price_cents < 0:
+            raise HTTPException(422, "price_cents must be >= 0")
+        if body.qty_total is None or body.qty_total <= 0:
+            raise HTTPException(422, "qty_total must be > 0")
+        if body.qty_left is not None and (body.qty_left < 0 or body.qty_left > body.qty_total):
+            raise HTTPException(422, "qty_left must be between 0 and qty_total")
+        exp = body.expires_at
+        # Make tz-aware UTC if naive
+        import datetime as _dt
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=_dt.timezone.utc)
+        now = _dt.datetime.now(_dt.timezone.utc)
+        if exp <= now:
+            raise HTTPException(422, "expires_at must be in the future (UTC)")
+        oid=str(uuid.uuid4())
+        qty_left=body.qty_left if body.qty_left is not None else body.qty_total
+        await db.execute(text(
+            "INSERT INTO foody_offers (id, restaurant_id, title, price_cents, qty_total, qty_left, expires_at) "
+            "VALUES (:id,:rid,:title,:price,:qty_total,:qty_left,:expires_at)"
+        ).bindparams(id=oid, rid=body.restaurant_id, title=body.title.strip(), price=body.price_cents, qty_total=body.qty_total, qty_left=qty_left, expires_at=exp))
+        await db.commit()
+        o=(await db.execute(select(FoodyOffer).where(FoodyOffer.id==oid))).scalar_one()
+        return MerchantOfferOut(id=o.id, restaurant_id=o.restaurant_id, title=o.title, price_cents=o.price_cents, qty_total=o.qty_total, qty_left=o.qty_left, expires_at=o.expires_at, created_at=o.created_at)
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Surface DB/parse errors to client
+        raise HTTPException(400, f"create_offer failed: {e}")
 
 @router.patch("/merchant/offers/{offer_id}", response_model=MerchantOfferOut)
 async def merchant_update_offer(offer_id: str, body: MerchantOfferPatch, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
