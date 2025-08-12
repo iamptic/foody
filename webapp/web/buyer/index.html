@@ -1,0 +1,77 @@
+<!doctype html><html><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Foody — Витрина</title>
+<link rel="stylesheet" href="/web/style.css"/>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/config.js"></script>
+</head><body>
+<div class="container">
+  <h2>🛒 Витрина</h2>
+  <div class="card">
+    <div class="row">
+      <div class="col"><label class="small">Restaurant ID</label><input id="rid" class="input" placeholder="RID_DEMO"/></div>
+      <div class="col"><label class="small">Ваш Telegram ID</label><input id="tgid" class="input" placeholder="авто"/></div>
+    </div>
+    <div style="margin-top:8px">
+      <button class="btn" id="btnLoad">Обновить предложения</button>
+    </div>
+  </div>
+  <div id="list"></div>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+const toast=(t)=>{const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1500)};
+const tg = window.Telegram?.WebApp;
+if(tg){tg.expand();tg.setHeaderColor('#ffffff');tg.setBackgroundColor('#ffffff');}
+
+function priceFmt(c){return (c/100).toFixed(2).replace('.',',')+' ₽'}
+async function loadOffers(){
+  const rid = document.getElementById('rid').value.trim()||'RID_DEMO';
+  const base = window.BACKEND_PUBLIC;
+  const res = await fetch(`${base}/api/v1/offers?restaurant_id=${encodeURIComponent(rid)}`);
+  const data = await res.json();
+  const list = document.getElementById('list'); list.innerHTML='';
+  if(!Array.isArray(data)||data.length===0){list.innerHTML='<div class="card muted">Пока пусто</div>';return;}
+  data.forEach(o=>{
+    const left = o.qty_left;
+    const exp = new Date(o.expires_at);
+    const mins = Math.max(0, Math.floor((exp - new Date())/60000));
+    const div = document.createElement('div');
+    div.className='card';
+    div.innerHTML=`<div class="row">
+      <div class="col"><h3>${o.title}</h3><div class="muted small">До списания: <b>${mins} мин</b></div>
+      <div class="small">Цена сейчас: <span class="badge">${priceFmt(o.price_now_cents)}</span> <span class="muted">(обычно ${priceFmt(o.price_cents)})</span></div>
+      <div class="small">Осталось: <b>${left}</b></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button data-id="${o.id}" class="btn">Забронировать</button>
+      </div>
+    </div>`;
+    div.querySelector('button').onclick = ()=>reserve(o.id);
+    list.appendChild(div);
+  });
+}
+async function reserve(offerId){
+  const base = window.BACKEND_PUBLIC;
+  const rid = document.getElementById('rid').value.trim()||'RID_DEMO';
+  let tgid = document.getElementById('tgid').value.trim();
+  if(!tgid && tg?.initDataUnsafe?.user?.id) tgid = String(tg.initDataUnsafe.user.id);
+  const r = await fetch(`${base}/api/v1/reservations`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ offer_id: offerId, buyer_tg_id: tgid || 'demo' })
+  });
+  if(!r.ok){ toast('Ошибка брони'); return; }
+  const data = await r.json();
+  // открыть квитанцию
+  const url = `/web/buyer/receipt.html?id=${encodeURIComponent(data.id)}`;
+  if(tg) tg.openLink(url); else location.href = url;
+}
+document.getElementById('btnLoad').onclick=loadOffers;
+window.addEventListener('load', ()=>{
+  const params = new URLSearchParams(location.search);
+  const rid = params.get('rid'); if(rid) document.getElementById('rid').value=rid;
+  const tgid=params.get('tgid'); if(tgid) document.getElementById('tgid').value=tgid;
+  loadOffers();
+});
+</script>
+</body></html>
