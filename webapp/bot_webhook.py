@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -15,10 +16,11 @@ WEBAPP_MERCHANT_URL = os.getenv("WEBAPP_MERCHANT_URL", f"{WEBAPP_PUBLIC}/web/mer
 BACKEND_PUBLIC = os.getenv("BACKEND_PUBLIC", "")
 CORS = os.getenv("CORS_ORIGINS", "*")
 
-app = FastAPI(title="Foody Bot/WebApp")
-app.add_middleware(CORSMiddleware, allow_origins=CORS.split(",") if CORS else ["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN env is required")
+if not WEBAPP_PUBLIC:
+    raise RuntimeError("WEBAPP_PUBLIC env is required")
 
-# FIX: use DefaultBotProperties for parse_mode on aiogram>=3.7
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 r = Router()
@@ -32,11 +34,29 @@ async def cmd_start(message: Message):
     ]])
     await message.answer("Привет! Выберите роль:", reply_markup=kb)
 
-@app.on_event("startup")
-async def on_startup():
-    if not BOT_TOKEN or not WEBAPP_PUBLIC:
-        raise RuntimeError("BOT_TOKEN and WEBAPP_PUBLIC must be set")
-    await bot.set_webhook(url=f"{WEBAPP_PUBLIC}/tg/webhook", secret_token=WEBHOOK_SECRET, drop_pending_updates=False)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await bot.set_webhook(
+        url=f"{WEBAPP_PUBLIC}/tg/webhook",
+        secret_token=WEBHOOK_SECRET,
+        drop_pending_updates=False
+    )
+    yield
+    # Shutdown
+    try:
+        await bot.delete_webhook(drop_pending_updates=False)
+    except Exception:
+        pass
+
+app = FastAPI(title="Foody Bot/WebApp", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS.split(",") if CORS else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/tg/webhook")
 async def tg_webhook(request: Request):
@@ -52,7 +72,14 @@ def config_js():
     return Response(content=f"window.BACKEND_PUBLIC='{BACKEND_PUBLIC}';", media_type="application/javascript")
 
 @app.get("/health")
-def health():
-    return {"ok": True, "webhook": f"{WEBAPP_PUBLIC}/tg/webhook"}
+async def health():
+    info = await bot.get_webhook_info()
+    return {"ok": True, "webhook_url": info.url}
+
+# Dev helper (можно удалить на проде)
+@app.get("/debug/wh")
+async def debug_wh():
+    info = await bot.get_webhook_info()
+    return info.model_dump()
 
 app.mount("/web", StaticFiles(directory="web", html=True), name="web")
