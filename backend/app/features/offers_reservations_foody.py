@@ -181,7 +181,7 @@ async def _auth_restaurant(db: AsyncSession, restaurant_id: str, api_key: Option
     return r
 
 @router.get("/merchant/offers", response_model=List[MerchantOfferOut])
-async def merchant_offers(restaurant_id: str = Query(...), x_foody_key: Optional[str] = Header(None, convert_underscores=False), db: AsyncSession=Depends(get_db)):
+async def merchant_offers(restaurant_id: str = Query(...), x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
     await _auth_restaurant(db, restaurant_id, x_foody_key)
     q = select(FoodyOffer).where(FoodyOffer.restaurant_id==restaurant_id).order_by(FoodyOffer.created_at.desc())
     res = (await db.execute(q)).scalars().all()
@@ -191,7 +191,7 @@ async def merchant_offers(restaurant_id: str = Query(...), x_foody_key: Optional
     ) for o in res]
 
 @router.post("/merchant/offers", response_model=MerchantOfferOut)
-async def merchant_create_offer(body: MerchantOfferIn, x_foody_key: Optional[str] = Header(None, convert_underscores=False), db: AsyncSession=Depends(get_db)):
+async def merchant_create_offer(body: MerchantOfferIn, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
     await _auth_restaurant(db, body.restaurant_id, x_foody_key)
     oid = str(uuid.uuid4())
     qty_left = body.qty_left if body.qty_left is not None else body.qty_total
@@ -206,7 +206,7 @@ async def merchant_create_offer(body: MerchantOfferIn, x_foody_key: Optional[str
     )
 
 @router.patch("/merchant/offers/{offer_id}", response_model=MerchantOfferOut)
-async def merchant_update_offer(offer_id: str, body: MerchantOfferPatch, x_foody_key: Optional[str] = Header(None, convert_underscores=False), db: AsyncSession=Depends(get_db)):
+async def merchant_update_offer(offer_id: str, body: MerchantOfferPatch, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
     o = (await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))).scalar_one_or_none()
     if not o:
         raise HTTPException(404, "offer not found")
@@ -229,7 +229,7 @@ async def merchant_update_offer(offer_id: str, body: MerchantOfferPatch, x_foody
     )
 
 @router.delete("/merchant/offers/{offer_id}")
-async def merchant_delete_offer(offer_id: str, x_foody_key: Optional[str] = Header(None, convert_underscores=False), db: AsyncSession=Depends(get_db)):
+async def merchant_delete_offer(offer_id: str, x_foody_key: Optional[str] = Header(None, alias="X-Foody-Key"), db: AsyncSession=Depends(get_db)):
     o = (await db.execute(select(FoodyOffer).where(FoodyOffer.id==offer_id))).scalar_one_or_none()
     if not o:
         raise HTTPException(404, "offer not found")
