@@ -34,7 +34,7 @@ async def _auth_key_to_restaurant(db: AsyncSession, api_key: Optional[str]) -> O
     row = (await db.execute(text("SELECT id FROM foody_restaurants WHERE api_key=:k").bindparams(k=api_key))).fetchone()
     return row[0] if row else None
 
-async def _auth_restaurant(db: AsyncSession, restaurant_id: str, status: str = Query('active', enum=['active','archived','all']), api_key: Optional[str]):
+async def _auth_restaurant(db: AsyncSession, restaurant_id: str, api_key: Optional[str] = None):
     rid_by_key = await _auth_key_to_restaurant(db, api_key)
     if rid_by_key is None or rid_by_key != restaurant_id:
         raise HTTPException(403, "Forbidden")
