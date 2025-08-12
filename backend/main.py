@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.bootstrap_db import run as run_migrations
 from app.features.offers_reservations_foody import router as offers_router
-
+app.include_router(offers_router)
 __version__ = "foody-backend-service-v3"
 
 app = FastAPI(title="Foody Backend", version=__version__)
