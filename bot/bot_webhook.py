@@ -1,3 +1,4 @@
+
 import os
 from fastapi import FastAPI, Request, HTTPException
 from aiogram import Bot, Dispatcher
@@ -12,12 +13,16 @@ WEBAPP_PUBLIC = os.getenv("WEBAPP_PUBLIC", "https://example.com")
 WEBAPP_BUYER_URL = os.getenv("WEBAPP_BUYER_URL", f"{WEBAPP_PUBLIC}/web/buyer/")
 WEBAPP_MERCHANT_URL = os.getenv("WEBAPP_MERCHANT_URL", f"{WEBAPP_PUBLIC}/web/merchant/")
 
+if not BOT_TOKEN:
+    print("[WARN] BOT_TOKEN is empty — /health будет работать, но Telegram не будет присылать апдейты.")
+
 bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 app = FastAPI()
 
 @app.get("/health")
-async def health(): return {"ok": True}
+async def health():
+    return {"ok": True}
 
 def kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
@@ -31,6 +36,7 @@ async def start(m):
 
 @app.post("/tg/webhook")
 async def tg_webhook(request: Request):
+    # Проверяем секрет от Telegram
     if request.headers.get("x-telegram-bot-api-secret-token") != WEBHOOK_SECRET:
         raise HTTPException(401, "bad secret")
     data = await request.json()
