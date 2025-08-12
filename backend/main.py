@@ -1,46 +1,32 @@
-import os, time
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-from app.bootstrap_db import run as run_migrations
-from app.features.offers_reservations_foody import router as offers_router
+from fastapi.responses import JSONResponse
+from app.db import engine
+from app.features.offers_reservations_foody import router, ensure_schema
 
-__version__ = "foody-backend-v6"
+app = FastAPI(title="Foody Backend", version="v10")
 
-app = FastAPI(title="Foody Backend", version=__version__)
-
-cors_origins = os.getenv("CORS_ORIGINS", "*")
-origins = [o.strip() for o in cors_origins.split(",")] if cors_origins else ["*"]
-app.add_middleware(CORSMiddleware, allow_origins=origins if origins != ["*"] else ["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"], expose_headers=["*"])
+# CORS
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins if origins else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
-async def _run_migs():
-    if os.getenv("RUN_MIGRATIONS", "1") == "1":
-        await run_migrations()
-
-app.include_router(offers_router)
+async def _boot():
+    await ensure_schema()
 
 @app.get("/health")
-def health():
-    return {"ok": True}
-
-@app.get("/")
-def root():
-    return {"ok": True, "service": "backend", "version": __version__}
-
-_DB_URL = os.getenv("DATABASE_URL","")
-if _DB_URL.startswith("postgresql://"):
-    _DB_URL = _DB_URL.replace("postgresql://","postgresql+asyncpg://",1)
-engine_dbg = create_async_engine(_DB_URL, echo=False, pool_pre_ping=True)
-
-@app.get("/debug/ping_db")
-async def _debug_ping_db():
-    t0=time.perf_counter()
-    async with engine_dbg.connect() as conn:
-        await conn.execute(text("SELECT 1"))
-    return {"ok": True, "ms": round((time.perf_counter()-t0)*1000,1)}
+async def health(): return {"ok": True}
 
 @app.get("/debug/routes")
-def _debug_routes():
-    return [{"path": r.path, "methods": sorted(list(getattr(r, "methods", []) or []))} for r in app.routes]
+async def routes():
+    return JSONResponse([{"path": r.path, "name": r.name, "methods": list(r.methods or [])} for r in app.router.routes])
+
+app.include_router(router)
