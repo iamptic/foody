@@ -1,12 +1,13 @@
-# main.py — Foody Backend v3 + admin /set_api_key
+# main.py — Foody Backend v3 + admin + debug
 import os
-from fastapi import FastAPI
-
+import time
+from fastapi import FastAPI, Query, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.bootstrap_db import run as run_migrations
 from app.features.offers_reservations_foody import router as offers_router
-app.include_router(offers_router)
-__version__ = "foody-backend-service-v3"
+
+__version__ = "foody-backend-service-v3+admin+debug-2025-08-12"
 
 app = FastAPI(title="Foody Backend", version=__version__)
 
@@ -31,7 +32,7 @@ async def _run_migs():
 # --- Основные роуты (offers / reservations / merchant) ---
 app.include_router(offers_router)
 
-# --- Health ---
+# --- Health / Root ---
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -45,8 +46,6 @@ def root():
 # POST /api/v1/admin/set_api_key?token=<ADMIN_MIGRATE_TOKEN>
 # body: {"restaurant_id":"RID_DEMO","api_key":"<ваш ключ>"}
 # ---------------------------------------------------------------------
-from typing import Optional
-from fastapi import Query, Body, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
@@ -73,3 +72,30 @@ async def set_api_key(token: str = Query(...), body: _SetKeyIn = Body(...)):
             {"k": body.api_key, "rid": body.restaurant_id},
         )
     return {"ok": True, "restaurant_id": body.restaurant_id, "api_key": body.api_key}
+
+# --- DEBUG helpers ---
+@app.get("/debug/ping_db")
+async def _debug_ping_db():
+    t0 = time.perf_counter()
+    async with _engine_admin.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+    dt = round((time.perf_counter() - t0) * 1000, 1)
+    return {"ok": True, "ms": dt}
+
+@app.get("/debug/check_restaurant")
+async def _debug_check_restaurant(rid: str):
+    async with _engine_admin.connect() as conn:
+        row = (await conn.execute(
+            text("SELECT id, api_key FROM foody_restaurants WHERE id=:rid"),
+            {"rid": rid},
+        )).first()
+    if not row:
+        return {"ok": False, "reason": "not_found"}
+    return {"ok": True, "id": row[0], "has_key": bool(row[1])}
+
+@app.get("/debug/routes")
+def _debug_routes():
+    return [
+        {"path": r.path, "methods": sorted(list(getattr(r, "methods", []) or []))}
+        for r in app.routes
+    ]
