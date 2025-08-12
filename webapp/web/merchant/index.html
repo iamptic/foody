@@ -1,0 +1,96 @@
+<!doctype html><html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Foody — ЛК партнёра</title>
+<link rel="stylesheet" href="/web/css/styles.css"/>
+<script src="/config.js"></script>
+</head><body>
+<div class="container">
+  <div class="h1">🧑‍🍳 ЛК партнёра</div>
+
+  <div class="section">
+    <div class="h2">Настройки</div>
+    <div class="kv">
+      <div>Restaurant ID</div><div><input id="rid" class="input" placeholder="напр. RID_DEMO"></div>
+      <div>API Key</div><div><input id="apikey" class="input" placeholder="ваш ключ"></div>
+    </div>
+    <div class="row">
+      <button id="btnSave" class="btn primary">Сохранить</button>
+      <button id="btnCheck" class="btn">Обновить</button>
+    </div>
+    <div class="small">BACKEND_PUBLIC: <b id="cfg"></b></div>
+  </div>
+
+  <div class="section">
+    <div class="h2">Новое предложение</div>
+    <div class="kv">
+      <div>Название</div><div><input id="title" class="input"></div>
+      <div>Цена, ₽</div><div><input id="price" class="input" type="number"></div>
+      <div>Кол-во</div><div><input id="qty" class="input" type="number" value="5"></div>
+      <div>Действует до (UTC)</div><div><input id="exp" class="input" type="datetime-local"></div>
+    </div>
+    <div class="row"><button id="btnCreate" class="btn success">Сохранить</button></div>
+  </div>
+
+  <div class="section">
+    <div class="h2">Мои предложения</div>
+    <table class="table" id="tbl"><thead>
+      <tr><th>Название</th><th>Цена</th><th>Ост.</th><th>Действует до</th><th></th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+</div>
+
+<script>
+const api = window.BACKEND_PUBLIC;
+document.getElementById('cfg').textContent = api || '(пусто)';
+const $ = (s)=>document.querySelector(s);
+function toast(t){ const el=document.createElement('div'); el.className='toast'; el.textContent=t; document.body.appendChild(el); setTimeout(()=>el.remove(),2000); }
+function saveCfg(){
+  localStorage.setItem('restaurant_id',$('#rid').value.trim());
+  localStorage.setItem('api_key',$('#apikey').value.trim());
+  toast('Сохранено');
+}
+function loadCfg(){
+  $('#rid').value = localStorage.getItem('restaurant_id')||'RID_DEMO';
+  $('#apikey').value = localStorage.getItem('api_key')||'';
+}
+async function refresh(){
+  const rid = $('#rid').value.trim()||'RID_DEMO';
+  const key = $('#apikey').value.trim();
+  const r = await fetch(`${api}/api/v1/merchant/offers?restaurant_id=${encodeURIComponent(rid)}`, {headers:{'X-Foody-Key':key}});
+  const j = await r.json();
+  const tb = document.querySelector('#tbl tbody');
+  if(!r.ok){ tb.innerHTML = `<tr><td colspan=5>Ошибка: ${j.detail||r.status}</td></tr>`; return; }
+  tb.innerHTML = j.map(o=>`<tr>
+    <td>${o.title}</td>
+    <td>${(o.price_cents/100).toFixed(2)} ₽</td>
+    <td>${o.qty_left}</td>
+    <td>${new Date(o.expires_at).toLocaleString()}</td>
+    <td><button class="btn danger" onclick="delOffer('${o.id}')">Удалить</button></td>
+  </tr>`).join('');
+}
+async function createOffer(){
+  const rid = $('#rid').value.trim()||'RID_DEMO';
+  const key = $('#apikey').value.trim();
+  const title = $('#title').value.trim();
+  const price = Math.round(parseFloat($('#price').value||'0')*100);
+  const qty = parseInt($('#qty').value||'1');
+  const exp = new Date($('#exp').value).toISOString();
+  const r = await fetch(`${api}/api/v1/merchant/offers`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-Foody-Key':key},
+    body: JSON.stringify({restaurant_id:rid,title,price_cents:price,qty_total:qty,qty_left:qty,expires_at:exp})
+  });
+  if(r.ok){ toast('Создано'); refresh(); } else { const j=await r.json(); alert('Ошибка: '+(j.detail||r.status)); }
+}
+async function delOffer(id){
+  const rid = $('#rid').value.trim()||'RID_DEMO';
+  const key = $('#apikey').value.trim();
+  const r = await fetch(`${api}/api/v1/merchant/offers/${id}`, {method:'DELETE', headers:{'X-Foody-Key':key}});
+  if(r.ok){ toast('Удалено'); refresh(); } else { const j=await r.json(); alert('Ошибка: '+(j.detail||r.status)); }
+}
+document.getElementById('btnSave').onclick=()=>{saveCfg(); refresh();};
+document.getElementById('btnCheck').onclick=refresh;
+document.getElementById('btnCreate').onclick=createOffer;
+loadCfg(); refresh();
+</script>
+</body></html>

@@ -1,0 +1,52 @@
+<!doctype html><html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Foody — Витрина</title>
+<link rel="stylesheet" href="/web/css/styles.css"/>
+<script src="/config.js"></script>
+</head><body>
+<div class="container">
+  <div class="h1">🛒 Витрина</div>
+  <div class="section">
+    <div class="row">
+      <input id="rid" class="input" placeholder="Restaurant ID (опционально, по умолчанию RID_DEMO)"/>
+      <button id="btnLoad" class="btn primary">Показать предложения</button>
+    </div>
+  </div>
+  <div id="offers" class="grid"></div>
+</div>
+<script>
+const api = window.BACKEND_PUBLIC;
+const $ = (s)=>document.querySelector(s);
+async function loadOffers(){
+  const rid = $('#rid').value.trim() || 'RID_DEMO';
+  const res = await fetch(`${api}/api/v1/offers?restaurant_id=${encodeURIComponent(rid)}`);
+  const data = await res.json();
+  const host = location.origin;
+  $('#offers').innerHTML = data.map(o=>`<div class="card">
+    <div class="h2">${o.title}</div>
+    <div class="small">Действует до: ${new Date(o.expires_at).toLocaleString()}</div>
+    <div class="small">Осталось: ${o.qty_left}</div>
+    <div class="row">
+      <div class="btn">${(o.price_cents/100).toFixed(2)} ₽</div>
+      <div class="btn success" onclick="reserve('${o.id}')">Забронировать</div>
+    </div>
+  </div>`).join('');
+}
+async function reserve(offerId){
+  const buyer_tg_id = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'demo_user')+'';
+  const r = await fetch(`${api}/api/v1/reservations`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({offer_id:offerId,buyer_tg_id})
+  });
+  const j = await r.json();
+  if(r.ok){
+    location.href = `/web/buyer/receipt.html?id=${encodeURIComponent(j.id)}`;
+  }else{
+    alert('Ошибка: '+(j.detail||r.status));
+  }
+}
+$('#btnLoad').onclick=loadOffers;
+loadOffers();
+</script>
+</body></html>

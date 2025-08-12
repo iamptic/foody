@@ -1,0 +1,31 @@
+<!doctype html><html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Foody — Квитанция</title>
+<link rel="stylesheet" href="/web/css/styles.css"/>
+<script src="/config.js"></script>
+</head><body>
+<div class="container">
+  <div class="h1">🎟️ Ваша бронь</div>
+  <div class="section">
+    <div id="info" class="kv small"></div>
+    <img id="qr" alt="QR" style="width:220px;height:220px;border:1px solid #e5e7eb;border-radius:12px"/>
+  </div>
+</div>
+<script>
+const api = window.BACKEND_PUBLIC;
+const url = new URL(location.href);
+const id = url.searchParams.get('id');
+(async function(){
+  const r = await fetch(`${api}/api/v1/reservations/${encodeURIComponent(id)}`);
+  const j = await r.json();
+  if(!r.ok){ alert('Ошибка: '+(j.detail||r.status)); return; }
+  document.getElementById('info').innerHTML = `
+    <div>ID брони</div><div>${j.id}</div>
+    <div>Статус</div><div>${j.status}</div>
+    <div>Действует до</div><div>${new Date(j.expires_at).toLocaleString()}</div>
+    <div>Код</div><div><b>${j.code}</b></div>`;
+  document.getElementById('qr').src = `${api}/api/v1/reservations/${encodeURIComponent(id)}/qr.png`;
+})();
+</script>
+</body></html>

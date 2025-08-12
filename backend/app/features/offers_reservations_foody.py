@@ -1,7 +1,8 @@
-# app/features/offers_reservations_foody.py
-import os, datetime as dt, uuid, secrets
+# app/features/offers_reservations_foody.py  (patched: header alias + QR endpoint + get reservation)
+import os, datetime as dt, uuid, secrets, io
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query, Header, Body
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column
@@ -116,7 +117,8 @@ async def create_reservation(body: ReservationCreateIn, db: AsyncSession=Depends
         raise HTTPException(400, "offer unavailable")
 
     res = await db.execute(
-        text("UPDATE foody_offers SET qty_left = qty_left - 1 WHERE id = :id AND qty_left > 0 RETURNING qty_left").bindparams(id=offer.id)
+        text("UPDATE foody_offers SET qty_left = qty_left - 1 WHERE id = :id AND qty_left > 0 RETURNING qty_left")
+        .bindparams(id=offer.id)
     )
     await db.commit()
     if not res.first():
@@ -237,3 +239,43 @@ async def merchant_delete_offer(offer_id: str, x_foody_key: Optional[str] = Head
     await db.execute(text("DELETE FROM foody_offers WHERE id = :id").bindparams(id=offer_id))
     await db.commit()
     return {"ok": True}
+
+# --- Reservation details + QR (NEW) ---
+class ReservationDetail(BaseModel):
+    id: str
+    offer_id: str
+    restaurant_id: str
+    code: str
+    status: str
+    expires_at: dt.datetime
+
+@router.get("/reservations/{res_id}", response_model=ReservationDetail)
+async def get_reservation(res_id: str, db: AsyncSession=Depends(get_db)):
+    r = (await db.execute(select(FoodyReservation).where(FoodyReservation.id==res_id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "reservation not found")
+    return ReservationDetail(
+        id=r.id, offer_id=r.offer_id, restaurant_id=r.restaurant_id,
+        code=r.code, status=r.status, expires_at=r.expires_at
+    )
+
+@router.get("/reservations/{res_id}/qr.png")
+async def reservation_qr_png(res_id: str, db: AsyncSession=Depends(get_db)):
+    r = (await db.execute(select(FoodyReservation).where(FoodyReservation.id==res_id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "reservation not found")
+    payload = f"FOODY|{r.id}|{r.code}"
+    # Generate QR as PNG
+    try:
+        import qrcode
+        from PIL import Image  # noqa: F401 (ensures pillow installed)
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=2)
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        bio = io.BytesIO()
+        img.save(bio, format="PNG")
+        return Response(content=bio.getvalue(), media_type="image/png")
+    except Exception:
+        # Fallback: return text if qrcode not installed
+        return Response(content=f"QR: {payload}".encode("utf-8"), media_type="text/plain")

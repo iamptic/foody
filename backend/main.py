@@ -1,17 +1,18 @@
 # main.py — Foody Backend v3 + admin + debug
-import os
-import time
+import os, time
 from fastapi import FastAPI, Query, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.bootstrap_db import run as run_migrations
 from app.features.offers_reservations_foody import router as offers_router
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
 
-__version__ = "foody-backend-service-v3+admin+debug-2025-08-12"
+__version__ = "foody-backend-service-v5"
 
 app = FastAPI(title="Foody Backend", version=__version__)
 
-# --- CORS ---
+# CORS
 cors_origins = os.getenv("CORS_ORIGINS", "*")
 origins = [o.strip() for o in cors_origins.split(",")] if cors_origins else ["*"]
 app.add_middleware(
@@ -23,16 +24,16 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# --- Startup: миграции ---
+# Startup migrations
 @app.on_event("startup")
 async def _run_migs():
     if os.getenv("RUN_MIGRATIONS", "1") == "1":
         await run_migrations()
 
-# --- Основные роуты (offers / reservations / merchant) ---
+# Routers
 app.include_router(offers_router)
 
-# --- Health / Root ---
+# Health & root
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -41,21 +42,11 @@ def health():
 def root():
     return {"ok": True, "service": "backend", "version": __version__}
 
-# ---------------------------------------------------------------------
-# Admin helper: вручную выставить api_key ресторану (если нет SQL-консоли)
-# POST /api/v1/admin/set_api_key?token=<ADMIN_MIGRATE_TOKEN>
-# body: {"restaurant_id":"RID_DEMO","api_key":"<ваш ключ>"}
-# ---------------------------------------------------------------------
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-
+# Admin set_api_key
 ADMIN_TOKEN = os.getenv("ADMIN_MIGRATE_TOKEN", "changeme")
-
 _DB_URL = os.getenv("DATABASE_URL", "")
 if _DB_URL.startswith("postgresql://"):
     _DB_URL = _DB_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-
 _engine_admin = create_async_engine(_DB_URL, echo=False, pool_pre_ping=True)
 
 class _SetKeyIn(BaseModel):
@@ -73,7 +64,7 @@ async def set_api_key(token: str = Query(...), body: _SetKeyIn = Body(...)):
         )
     return {"ok": True, "restaurant_id": body.restaurant_id, "api_key": body.api_key}
 
-# --- DEBUG helpers ---
+# Debug helpers
 @app.get("/debug/ping_db")
 async def _debug_ping_db():
     t0 = time.perf_counter()
@@ -85,17 +76,11 @@ async def _debug_ping_db():
 @app.get("/debug/check_restaurant")
 async def _debug_check_restaurant(rid: str):
     async with _engine_admin.connect() as conn:
-        row = (await conn.execute(
-            text("SELECT id, api_key FROM foody_restaurants WHERE id=:rid"),
-            {"rid": rid},
-        )).first()
+        row = (await conn.execute(text("SELECT id, api_key FROM foody_restaurants WHERE id=:rid"), {"rid": rid})).first()
     if not row:
         return {"ok": False, "reason": "not_found"}
     return {"ok": True, "id": row[0], "has_key": bool(row[1])}
 
 @app.get("/debug/routes")
 def _debug_routes():
-    return [
-        {"path": r.path, "methods": sorted(list(getattr(r, "methods", []) or []))}
-        for r in app.routes
-    ]
+    return [{"path": r.path, "methods": sorted(list(getattr(r, "methods", []) or []))} for r in app.routes]
