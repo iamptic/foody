@@ -1,6 +1,22 @@
 <!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Foody — Витрина</title><link rel="stylesheet" href="/web/style.css"/>
-<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/config.js"></script></head><body>
+<script src="https://telegram.org/js/telegram-web-app.js">
+const urlParams = new URLSearchParams(location.search);
+const paramOffer = urlParams.get('offer');
+function focusOffer(id){
+  const card = document.querySelector(`[data-offer-id="${id}"]`);
+  if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('pulse'); setTimeout(()=>card.classList.remove('pulse'),2000); }
+}
+setTimeout(()=>{ if(paramOffer) focusOffer(paramOffer); }, 800);
+</script><script src="/config.js">
+const urlParams = new URLSearchParams(location.search);
+const paramOffer = urlParams.get('offer');
+function focusOffer(id){
+  const card = document.querySelector(`[data-offer-id="${id}"]`);
+  if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('pulse'); setTimeout(()=>card.classList.remove('pulse'),2000); }
+}
+setTimeout(()=>{ if(paramOffer) focusOffer(paramOffer); }, 800);
+</script></head><body>
 <div class="container">
   <h2>🛒 Витрина</h2>
   <div class="card">
@@ -162,5 +178,13 @@ document.getElementById('city').onchange=(e)=>{
 };
 document.getElementById('btnSave').onclick=saveFilters;
 window.addEventListener('load', ()=>{ loadFilters(); loadOffers(); });
+
+const urlParams = new URLSearchParams(location.search);
+const paramOffer = urlParams.get('offer');
+function focusOffer(id){
+  const card = document.querySelector(`[data-offer-id="${id}"]`);
+  if(card){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('pulse'); setTimeout(()=>card.classList.remove('pulse'),2000); }
+}
+setTimeout(()=>{ if(paramOffer) focusOffer(paramOffer); }, 800);
 </script>
 </body></html>

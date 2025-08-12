@@ -46,6 +46,17 @@ document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getEl
 document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
 document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
 document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
+
+document.getElementById('btnShowActive').onclick=()=>{_offersStatus='active'; loadOffers();};
+document.getElementById('btnShowArchived').onclick=()=>{_offersStatus='archived'; loadOffers();};
+
+const BOT_USERNAME = window.BOT_USERNAME || 'itsfoodybot';
+function shareOffer(id){
+  const link = `https://t.me/${BOT_USERNAME}?start=offer_${id}`;
+  navigator.clipboard.writeText(link).then(()=>toast('Ссылка скопирована')).catch(()=>{});
+  try{ if (window.Telegram && Telegram.WebApp) Telegram.WebApp.openTelegramLink(link); }catch(e){}
+}
+
 </script><script src="/config.js">
 async function registerRestaurant(){
   const name = (document.getElementById('name')?.value||'').trim();
@@ -92,6 +103,17 @@ document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getEl
 document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
 document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
 document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
+
+document.getElementById('btnShowActive').onclick=()=>{_offersStatus='active'; loadOffers();};
+document.getElementById('btnShowArchived').onclick=()=>{_offersStatus='archived'; loadOffers();};
+
+const BOT_USERNAME = window.BOT_USERNAME || 'itsfoodybot';
+function shareOffer(id){
+  const link = `https://t.me/${BOT_USERNAME}?start=offer_${id}`;
+  navigator.clipboard.writeText(link).then(()=>toast('Ссылка скопирована')).catch(()=>{});
+  try{ if (window.Telegram && Telegram.WebApp) Telegram.WebApp.openTelegramLink(link); }catch(e){}
+}
+
 </script></head><body>
 <div class="container">
   <h2>👨‍🍳 Партнёрский кабинет</h2>
@@ -111,7 +133,7 @@ document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
   <div class="card">
     <h3>Новое/редактирование предложения</h3>
     '; return;}
-  el.innerHTML='<table class="table"><thead><tr><th>Название</th><th>Цена</th><th>Ост.</th><th>Срок</th><th></th><th class=\"thEdit\"></th></tr></thead><tbody>'+
+  el.innerHTML='<table class="table"><thead><tr><th>Название</th><th>Цена</th><th>Ост.</th><th>Срок</th><th></th><th class=\"thEdit\"></th><th class=\"thShare\"></th></tr></thead><tbody>'+
     data.map(x=>`<tr><td>${x.title}</td><td>${fmtRub(x.price_cents)}</td><td>${x.qty_left}/${x.qty_total}</td><td>${new Date(x.expires_at).toLocaleString()}</td><td><button class="btn" data-act="edit" data-id="${x.id}">Изм.</button> <button class="btn secondary" data-act="del" data-id="${x.id}">Удалить</button></td></tr>`).join('')+
   '</tbody></table>';
   el.querySelectorAll('button[data-act="del"]').forEach(btn=>btn.onclick=()=>delOffer(btn.getAttribute('data-id')));
@@ -253,5 +275,16 @@ document.getElementById('btnPreset50').onclick=()=>{ const p=_num(document.getEl
 document.getElementById('btnPreset70').onclick=()=>{ const p=_num(document.getElementById('price').value); if(p>0) _setPriceRub(p*0.3); };
 document.getElementById('btnPlus1h').onclick=()=>_setExpirePlusHours(1);
 document.getElementById('btnPlus2h').onclick=()=>_setExpirePlusHours(2);
+
+document.getElementById('btnShowActive').onclick=()=>{_offersStatus='active'; loadOffers();};
+document.getElementById('btnShowArchived').onclick=()=>{_offersStatus='archived'; loadOffers();};
+
+const BOT_USERNAME = window.BOT_USERNAME || 'itsfoodybot';
+function shareOffer(id){
+  const link = `https://t.me/${BOT_USERNAME}?start=offer_${id}`;
+  navigator.clipboard.writeText(link).then(()=>toast('Ссылка скопирована')).catch(()=>{});
+  try{ if (window.Telegram && Telegram.WebApp) Telegram.WebApp.openTelegramLink(link); }catch(e){}
+}
+
 </script>
 </body></html>
